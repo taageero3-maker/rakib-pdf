@@ -8,10 +8,14 @@ environment:
   sdk: '>=3.3.0 <4.0.0'
 
 
+
 dependencies:
   flutter:
     sdk: flutter
-  flutter_doc_scanner: ^0.0.21
+  camera: ^0.11.0+2
+  pdf: ^3.11.3
+  path_provider: ^2.1.5
+
 
 
 dev_dependencies:
