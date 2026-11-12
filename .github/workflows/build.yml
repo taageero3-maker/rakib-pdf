@@ -1,20 +1,42 @@
 
-name: rakib_pdf
-description: All-in-One PDF Scanner and Editor.
-publish_to: 'none'
-version: 1.0.0+1
+name: Build RAKIB PDF APK
 
-environment:
-  sdk: '>=3.3.0 <4.0.0'
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
-dependencies:
-  flutter:
-    sdk: flutter
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^5.0.0
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-flutter:
-  uses-material-design: true
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Generate Android project
+        run: flutter create --platforms=android --org com.rakib .
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RAKIB-PDF-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
