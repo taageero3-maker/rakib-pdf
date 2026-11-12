@@ -497,7 +497,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
         document.addPage(
           pw.Page(
-            pageFormat: pw.PdfPageFormat.a4,
+            pageFormat: PdfPageFormat.a4,
             margin: const pw.EdgeInsets.all(18),
             build: (context) {
               return pw.Center(
