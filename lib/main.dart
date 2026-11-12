@@ -4,14 +4,19 @@ import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const RakibPdfApp());
 }
+
+const Color primaryBlue = Color(0xFF2878E8);
+const Color darkText = Color(0xFF17243A);
+const Color lightBackground = Color(0xFFF5F7FB);
 
 class RakibPdfApp extends StatelessWidget {
   const RakibPdfApp({super.key});
@@ -19,19 +24,25 @@ class RakibPdfApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'RAKIB PDF',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
+        scaffoldBackgroundColor: lightBackground,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1769E8),
+          seedColor: primaryBlue,
+          primary: primaryBlue,
         ),
-        scaffoldBackgroundColor: const Color(0xFFF5F7FB),
+        fontFamily: 'Roboto',
       ),
       home: const HomeScreen(),
     );
   }
 }
+
+// --------------------------------------------------
+// HOME SCREEN
+// --------------------------------------------------
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,77 +54,617 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int selectedTab = 0;
   bool openingScanner = false;
+
   final List<Map<String, dynamic>> documents = [];
+
+  void showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<Directory> getPdfFolder() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final folder = Directory('${directory.path}/RAKIB_PDF');
+
+    if (!await folder.exists()) {
+      await folder.create(recursive: true);
+    }
+
+    return folder;
+  }
+
+  Future<void> savePdf(List<Uint8List> pages, String prefix) async {
+    if (pages.isEmpty) return;
+
+    final pdf = pw.Document();
+
+    for (final bytes in pages) {
+      final image = pw.MemoryImage(bytes);
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(18),
+          build: (context) {
+            return pw.Center(
+              child: pw.Image(
+                image,
+                fit: pw.BoxFit.contain,
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    final folder = await getPdfFolder();
+
+    final fileName =
+        '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+    final file = File('${folder.path}/$fileName');
+
+    await file.writeAsBytes(await pdf.save());
+
+    if (!mounted) return;
+
+    setState(() {
+      documents.insert(0, {
+        'name': fileName,
+        'path': file.path,
+      });
+    });
+
+    showMessage('PDF si guul leh ayaa loo kaydiyey!');
+  }
+
+  // CAMERA SCANNER
 
   Future<void> startScanning() async {
     if (openingScanner) return;
 
-    setState(() => openingScanner = true);
+    setState(() {
+      openingScanner = true;
+    });
 
     try {
-      final cameras = await availableCameras();
-
-      if (!mounted) return;
-
-      if (cameras.isEmpty) {
-        throw Exception('Telefoonka kamarad lagama helin.');
-      }
-
-      final result = await Navigator.push<String>(
+      final pages = await Navigator.push<List<Uint8List>>(
         context,
         MaterialPageRoute(
-          builder: (_) => ScannerScreen(camera: cameras.first),
+          builder: (_) => const ScannerScreen(),
         ),
       );
 
-      if (!mounted) return;
+      if (!mounted || pages == null || pages.isEmpty) return;
 
-      if (result != null) {
-        setState(() {
-          documents.insert(0, {
-            'name': 'Scanned Document ${documents.length + 1}',
-            'path': result,
-          });
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('PDF-ga waa la kaydiyay!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Camera error: $e')),
+      final reviewedPages = await Navigator.push<List<Uint8List>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ScanPreviewScreen(pages: pages),
+        ),
       );
+
+      if (!mounted ||
+          reviewedPages == null ||
+          reviewedPages.isEmpty) {
+        return;
+      }
+
+      await savePdf(reviewedPages, 'RAKIB_SCAN');
+    } catch (e) {
+      if (mounted) {
+        showMessage('Scanner error: $e');
+      }
     } finally {
-      if (mounted) setState(() => openingScanner = false);
+      if (mounted) {
+        setState(() {
+          openingScanner = false;
+        });
+      }
+    }
+  }
+
+  // IMAGES TO PDF
+
+  Future<void> pickImagesToPdf() async {
+    try {
+      final picker = ImagePicker();
+
+      final selectedImages = await picker.pickMultiImage();
+
+      if (!mounted || selectedImages.isEmpty) return;
+
+      final List<Uint8List> pages = [];
+
+      for (final image in selectedImages) {
+        pages.add(await image.readAsBytes());
+      }
+
+      if (!mounted) return;
+
+      final reviewedPages = await Navigator.push<List<Uint8List>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ScanPreviewScreen(pages: pages),
+        ),
+      );
+
+      if (!mounted ||
+          reviewedPages == null ||
+          reviewedPages.isEmpty) {
+        return;
+      }
+
+      await savePdf(reviewedPages, 'RAKIB_IMAGES');
+    } catch (e) {
+      if (mounted) {
+        showMessage('Images error: $e');
+      }
     }
   }
 
   void comingSoon(String name) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$name — dhawaan ayuu imanayaa')),
+    showMessage('$name dhawaan ayuu imaan doonaa.');
+  }
+
+  // HOME PAGE
+
+  Widget homePage() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 45,
+                  height: 45,
+                  decoration: BoxDecoration(
+                    color: primaryBlue,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.picture_as_pdf,
+                    color: Colors.white,
+                    size: 27,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'RAKIB PDF',
+                      style: TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.bold,
+                        color: darkText,
+                      ),
+                    ),
+                    Text(
+                      'Your PDF toolkit',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedTab = 2;
+                    });
+                  },
+                  icon: const Icon(Icons.settings_outlined),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 25),
+
+            // SCANNER BANNER
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF2878E8),
+                    Color(0xFF1554B8),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.document_scanner_outlined,
+                    color: Colors.white,
+                    size: 40,
+                  ),
+                  const SizedBox(height: 15),
+                  const Text(
+                    'Scan documents',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 23,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  const Text(
+                    'Turn your paper documents into PDF files.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    height: 45,
+                    child: ElevatedButton.icon(
+                      onPressed:
+                          openingScanner ? null : startScanning,
+                      icon: const Icon(Icons.camera_alt),
+                      label: Text(
+                        openingScanner ? 'Opening...' : 'Start scanning',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: primaryBlue,
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            const Text(
+              'PDF Tools',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.bold,
+                color: darkText,
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 13,
+              mainAxisSpacing: 13,
+              childAspectRatio: 1.18,
+              children: [
+                toolCard(
+                  Icons.image_outlined,
+                  'Images to PDF',
+                  const Color(0xFF2878E8),
+                  pickImagesToPdf,
+                ),
+                toolCard(
+                  Icons.merge_type,
+                  'Merge PDF',
+                  const Color(0xFF8B5CF6),
+                  () => comingSoon('Merge PDF'),
+                ),
+                toolCard(
+                  Icons.compress,
+                  'Compress PDF',
+                  const Color(0xFF16A085),
+                  () => comingSoon('Compress PDF'),
+                ),
+                toolCard(
+                  Icons.content_cut,
+                  'Split PDF',
+                  const Color(0xFFEF8B35),
+                  () => comingSoon('Split PDF'),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 28),
+
+            Row(
+              children: [
+                const Text(
+                  'Recent Documents',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                    color: darkText,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedTab = 1;
+                    });
+                  },
+                  child: const Text('See all'),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            if (documents.isEmpty)
+              emptyDocuments()
+            else
+              ...documents.take(3).map(documentTile),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget toolCard(
+    IconData icon,
+    String title,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE9EDF4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 43,
+              height: 43,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.11),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 13),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: darkText,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget emptyDocuments() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+      ),
+      child: const Column(
+        children: [
+          Icon(
+            Icons.folder_open_outlined,
+            size: 38,
+            color: Colors.grey,
+          ),
+          SizedBox(height: 10),
+          Text(
+            'No documents yet',
+            style: TextStyle(
+              color: darkText,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 5),
+          Text(
+            'Your created PDFs will appear here.',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget documentTile(Map<String, dynamic> document) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 43,
+            height: 43,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEEEE),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.picture_as_pdf,
+              color: Colors.red,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              document['name'],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const Icon(
+            Icons.check_circle,
+            color: Colors.green,
+            size: 19,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // DOCUMENTS PAGE
+
+  Widget documentsPage() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'My Documents',
+              style: TextStyle(
+                fontSize: 23,
+                fontWeight: FontWeight.bold,
+                color: darkText,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Your recently created PDF files.',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: documents.isEmpty
+                  ? Center(child: emptyDocuments())
+                  : ListView.builder(
+                      itemCount: documents.length,
+                      itemBuilder: (context, index) {
+                        return documentTile(documents[index]);
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // SETTINGS PAGE
+
+  Widget settingsPage() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Settings',
+              style: TextStyle(
+                fontSize: 23,
+                fontWeight: FontWeight.bold,
+                color: darkText,
+              ),
+            ),
+            const SizedBox(height: 25),
+            settingTile(
+              Icons.info_outline,
+              'About RAKIB PDF',
+              'Version 1.0.0',
+            ),
+            settingTile(
+              Icons.privacy_tip_outlined,
+              'Privacy',
+              'Your files are stored on your device.',
+            ),
+            settingTile(
+              Icons.help_outline,
+              'Help & Support',
+              'RAKIB PDF tools',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget settingTile(IconData icon, String title, String subtitle) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: primaryBlue, size: 25),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      homePage(),
+      documentsPage(),
+      settingsPage(),
+    ];
+
     return Scaffold(
-      body: SafeArea(
-        child: selectedTab == 0
-            ? homePage()
-            : selectedTab == 1
-                ? documentsPage()
-                : settingsPage(),
-      ),
+      body: pages[selectedTab],
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedTab,
         onDestinationSelected: (index) {
-          setState(() => selectedTab = index);
+          setState(() {
+            selectedTab = index;
+          });
         },
+        backgroundColor: Colors.white,
+        indicatorColor: primaryBlue.withOpacity(0.12),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -127,431 +678,141 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
             label: 'Settings',
           ),
         ],
       ),
     );
   }
-
-  Widget homePage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1769E8),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.picture_as_pdf,
-                  color: Colors.white,
-                  size: 27,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'RAKIB PDF',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Your documents, simplified',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: () => setState(() => selectedTab = 2),
-                icon: const Icon(Icons.settings_outlined),
-              ),
-            ],
-          ),
-          const SizedBox(height: 28),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1769E8), Color(0xFF4895F5)],
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.document_scanner_outlined,
-                  color: Colors.white,
-                  size: 38,
-                ),
-                const SizedBox(height: 15),
-                const Text(
-                  'Scan any document',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                const Text(
-                  'Turn paper documents into high-quality PDFs.',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: openingScanner ? null : startScanning,
-                    icon: openingScanner
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(Icons.camera_alt),
-                    label: Text(
-                      openingScanner ? 'Opening camera...' : 'Start Scanning',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF1769E8),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 28),
-          const Text(
-            'PDF Tools',
-            style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 15),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 13,
-            crossAxisSpacing: 13,
-            childAspectRatio: 1.35,
-            children: [
-              toolCard(Icons.image_outlined, 'Images to PDF',
-                  const Color(0xFF2878E8),
-                  () => comingSoon('Images to PDF')),
-              toolCard(Icons.merge_type, 'Merge PDF',
-                  const Color(0xFF8B5CF6),
-                  () => comingSoon('Merge PDF')),
-              toolCard(Icons.compress, 'Compress PDF',
-                  const Color(0xFF16A085),
-                  () => comingSoon('Compress PDF')),
-              toolCard(Icons.content_cut, 'Split PDF',
-                  const Color(0xFFEF8B35),
-                  () => comingSoon('Split PDF')),
-            ],
-          ),
-          const SizedBox(height: 28),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Recent Documents',
-                style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
-              ),
-              TextButton(
-                onPressed: () => setState(() => selectedTab = 1),
-                child: const Text('See all'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (documents.isEmpty)
-            emptyState()
-          else
-            ...documents.take(3).map(documentTile),
-        ],
-      ),
-    );
-  }
-
-  Widget toolCard(
-      IconData icon, String title, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(17),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: const Color(0xFFE9EDF4)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 30),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget emptyState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(17),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.picture_as_pdf_outlined,
-              size: 42, color: Color(0xFF9AA8BA)),
-          SizedBox(height: 10),
-          Text('No documents yet',
-              style: TextStyle(fontWeight: FontWeight.bold)),
-          SizedBox(height: 5),
-          Text(
-            'Your scanned PDFs will appear here.',
-            style: TextStyle(color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget documentTile(Map<String, dynamic> doc) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.picture_as_pdf, color: Colors.red, size: 32),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              doc['name'],
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          const Icon(Icons.check_circle, color: Colors.green),
-        ],
-      ),
-    );
-  }
-
-  Widget documentsPage() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'My Documents',
-            style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: documents.isEmpty
-                ? Center(child: emptyState())
-                : ListView(children: documents.map(documentTile).toList()),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget settingsPage() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: const [
-        Text(
-          'Settings',
-          style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
-        ),
-        SizedBox(height: 20),
-        ListTile(
-          leading: Icon(Icons.info_outline, color: Color(0xFF1769E8)),
-          title: Text('About RAKIB PDF'),
-          subtitle: Text('Your all-in-one PDF assistant'),
-        ),
-        ListTile(
-          leading: Icon(Icons.privacy_tip_outlined,
-              color: Color(0xFF1769E8)),
-          title: Text('Privacy'),
-          subtitle: Text('Your documents belong to you'),
-        ),
-        ListTile(
-          leading: Icon(Icons.verified_outlined,
-              color: Color(0xFF1769E8)),
-          title: Text('Version'),
-          subtitle: Text('1.0.0'),
-        ),
-      ],
-    );
-  }
 }
 
-class ScannerScreen extends StatefulWidget {
-  final CameraDescription camera;
+// --------------------------------------------------
+// CAMERA SCANNER
+// --------------------------------------------------
 
-  const ScannerScreen({super.key, required this.camera});
+class ScannerScreen extends StatefulWidget {
+  const ScannerScreen({super.key});
 
   @override
   State<ScannerScreen> createState() => _ScannerScreenState();
 }
 
 class _ScannerScreenState extends State<ScannerScreen> {
-  late CameraController controller;
-  late Future<void> initializeController;
+  CameraController? controller;
+  List<CameraDescription> cameras = [];
+
   final List<Uint8List> pages = [];
+
+  bool initializing = true;
   bool takingPicture = false;
-  bool savingPdf = false;
+  String? errorMessage;
 
   @override
   void initState() {
     super.initState();
+    initializeCamera();
+  }
+
+  Future<void> initializeCamera() async {
+    try {
+      cameras = await availableCameras();
+
+      if (cameras.isEmpty) {
+        throw Exception('No camera found.');
+      }
+
+      controller = CameraController(
+        cameras.first,
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+
+      await controller!.initialize();
+
+      if (mounted) {
+        setState(() {
+          initializing = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          initializing = false;
+          errorMessage = e.toString();
+        });
+      }
+    }
+  }
+
+  Future<void> takePicture() async {
+    if (controller == null ||
+        !controller!.value.isInitialized ||
+        takingPicture) {
+      return;
+    }
+
+    setState(() {
+      takingPicture = true;
+    });
+
+    try {
+      final photo = await controller!.takePicture();
+      final bytes = await photo.readAsBytes();
+
+      if (!mounted) return;
+
+      setState(() {
+        pages.add(bytes);
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Camera error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          takingPicture = false;
+        });
+      }
+    }
+  }
+
+  Future<void> switchCamera() async {
+    if (cameras.length < 2) return;
+
+    final currentIndex = cameras.indexOf(controller!.description);
+    final nextIndex = (currentIndex + 1) % cameras.length;
+
+    await controller!.dispose();
+
     controller = CameraController(
-      widget.camera,
+      cameras[nextIndex],
       ResolutionPreset.high,
       enableAudio: false,
     );
-    initializeController = controller.initialize();
+
+    try {
+      await controller!.initialize();
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Camera error: $e')),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
-    controller.dispose();
+    controller?.dispose();
     super.dispose();
-  }
-
-  Future<void> capturePage() async {
-    if (takingPicture || savingPdf) return;
-
-    setState(() => takingPicture = true);
-
-    try {
-      await initializeController;
-
-      if (controller.value.isTakingPicture) return;
-
-      final photo = await controller.takePicture();
-      final bytes = await File(photo.path).readAsBytes();
-
-      if (!mounted) return;
-
-      setState(() => pages.add(bytes));
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bogga ${pages.length} waa la qaaday')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sawirka lama qaadi karin: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => takingPicture = false);
-    }
-  }
-
-  Future<void> reviewPages() async {
-    final result = await Navigator.push<List<Uint8List>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ScanPreviewScreen(pages: List.of(pages)),
-      ),
-    );
-
-    if (!mounted || result == null) return;
-
-    setState(() {
-      pages
-        ..clear()
-        ..addAll(result);
-    });
-  }
-
-  Future<void> savePdf() async {
-    if (pages.isEmpty || savingPdf) return;
-
-    setState(() => savingPdf = true);
-
-    try {
-      final document = pw.Document();
-
-      for (final bytes in pages) {
-        final image = pw.MemoryImage(bytes);
-
-        document.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.a4,
-            margin: const pw.EdgeInsets.all(18),
-            build: (context) {
-              return pw.Center(
-                child: pw.Image(
-                  image,
-                  fit: pw.BoxFit.contain,
-                ),
-              );
-            },
-          ),
-        );
-      }
-
-      final directory = await getApplicationDocumentsDirectory();
-      final folder = Directory('${directory.path}/RAKIB_PDF');
-
-      if (!await folder.exists()) {
-        await folder.create(recursive: true);
-      }
-
-      final fileName =
-          'RAKIB_${DateTime.now().millisecondsSinceEpoch}.pdf';
-      final file = File('${folder.path}/$fileName');
-
-      await file.writeAsBytes(await document.save());
-
-      if (!mounted) return;
-
-      Navigator.pop(context, file.path);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('PDF lama samayn karin: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => savingPdf = false);
-    }
   }
 
   @override
@@ -563,175 +824,136 @@ class _ScannerScreenState extends State<ScannerScreen> {
         foregroundColor: Colors.white,
         title: const Text('Document Scanner'),
         actions: [
-          if (pages.isNotEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Text('${pages.length} pages'),
-              ),
+          if (cameras.length > 1)
+            IconButton(
+              onPressed: switchCamera,
+              icon: const Icon(Icons.flip_camera_android),
             ),
         ],
       ),
-      body: FutureBuilder<void>(
-        future: initializeController,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Camera error: ${snapshot.error}',
-                style: const TextStyle(color: Colors.white),
-              ),
-            );
-          }
-
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
+      body: initializing
+          ? const Center(
               child: CircularProgressIndicator(color: Colors.white),
-            );
-          }
-
-          return Column(
-            children: [
-              Expanded(
-                child: Center(
-                  child: CameraPreview(controller),
-                ),
-              ),
-              if (pages.isNotEmpty)
-                Container(
-                  color: Colors.black87,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: SizedBox(
-                    height: 75,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: pages.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 5),
-                          child: Image.memory(
-                            pages[index],
-                            width: 55,
-                            height: 70,
-                            fit: BoxFit.cover,
-                          ),
-                        );
-                      },
+            )
+          : errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      errorMessage!,
+                      style: const TextStyle(color: Colors.white),
                     ),
                   ),
-                ),
-              Container(
-                width: double.infinity,
-                color: Colors.black,
-                padding: const EdgeInsets.all(20),
-                child: Column(
+                )
+              : Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        IconButton(
-                          onPressed: pages.isEmpty || savingPdf
-                              ? null
-                              : () => setState(() => pages.removeLast()),
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: takingPicture ? null : capturePage,
-                          child: Container(
-                            width: 75,
-                            height: 75,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 5,
-                              ),
-                            ),
-                            child: takingPicture
-                                ? const Padding(
-                                    padding: EdgeInsets.all(20),
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.camera_alt,
-                                    color: Colors.white,
-                                    size: 32,
-                                  ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: pages.isEmpty || savingPdf
-                              ? null
-                              : reviewPages,
-                          icon: const Icon(
-                            Icons.preview_outlined,
-                            color: Colors.white,
-                            size: 30,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Take photos, then review your pages',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: pages.isEmpty || savingPdf
-                            ? null
-                            : reviewPages,
-                        icon: const Icon(Icons.edit_document),
-                        label: const Text('Review & Organize Pages'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white54),
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                        ),
+                    Expanded(
+                      child: Center(
+                        child: CameraPreview(controller!),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed:
-                            pages.isEmpty || savingPdf ? null : savePdf,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1769E8),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                        ),
-                        child: Text(
-                          savingPdf
-                              ? 'Creating PDF...'
-                              : 'Save PDF (${pages.length} pages)',
-                        ),
+                    Container(
+                      color: Colors.black,
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '${pages.length} pages captured',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const Spacer(),
+                              if (pages.isNotEmpty)
+                                TextButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      pages.clear();
+                                    });
+                                  },
+                                  child: const Text(
+                                    'Clear all',
+                                    style: TextStyle(color: Colors.redAccent),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceAround,
+                            children: [
+                              IconButton(
+                                onPressed: pages.isEmpty
+                                    ? null
+                                    : () {
+                                        Navigator.pop(context, pages);
+                                      },
+                                icon: const Icon(
+                                  Icons.check_circle_outline,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                              ),
+                              InkWell(
+                                onTap: takePicture,
+                                borderRadius: BorderRadius.circular(50),
+                                child: Container(
+                                  width: 75,
+                                  height: 75,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 5,
+                                    ),
+                                  ),
+                                  child: takingPicture
+                                      ? const Padding(
+                                          padding: EdgeInsets.all(20),
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.camera_alt,
+                                          color: Colors.white,
+                                          size: 30,
+                                        ),
+                                ),
+                              ),
+                              Text(
+                                '${pages.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          );
-        },
-      ),
     );
   }
 }
 
+// --------------------------------------------------
+// SCAN PREVIEW AND PAGE ORDERING
+// --------------------------------------------------
+
 class ScanPreviewScreen extends StatefulWidget {
   final List<Uint8List> pages;
 
-  const ScanPreviewScreen({super.key, required this.pages});
+  const ScanPreviewScreen({
+    super.key,
+    required this.pages,
+  });
 
   @override
   State<ScanPreviewScreen> createState() => _ScanPreviewScreenState();
@@ -743,7 +965,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
   @override
   void initState() {
     super.initState();
-    pages = List.of(widget.pages);
+    pages = List<Uint8List>.from(widget.pages);
   }
 
   void deletePage(int index) {
@@ -752,7 +974,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     });
   }
 
-  void openPage(int index) {
+  void openFullPreview(int index) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -767,18 +989,25 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: lightBackground,
       appBar: AppBar(
-        title: const Text('Review Pages'),
+        title: const Text(
+          'Preview Pages',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, pages),
+            onPressed: pages.isEmpty
+                ? null
+                : () {
+                    Navigator.pop(context, pages);
+                  },
             child: const Text(
-              'Done',
+              'Create PDF',
               style: TextStyle(
-                color: Color(0xFF1769E8),
                 fontWeight: FontWeight.bold,
+                color: primaryBlue,
               ),
             ),
           ),
@@ -786,7 +1015,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       ),
       body: pages.isEmpty
           ? const Center(
-              child: Text('All pages have been removed.'),
+              child: Text('No pages selected.'),
             )
           : Column(
               children: [
@@ -794,81 +1023,94 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.description_outlined,
-                        color: Color(0xFF1769E8),
-                      ),
-                      const SizedBox(width: 10),
                       Text(
                         '${pages.length} pages',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 17,
+                          fontSize: 16,
                         ),
                       ),
                       const Spacer(),
                       const Text(
                         'Hold and drag to reorder',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 Expanded(
                   child: ReorderableListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 5,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: pages.length,
                     onReorder: (oldIndex, newIndex) {
                       setState(() {
-                        if (newIndex > oldIndex) newIndex--;
+                        if (newIndex > oldIndex) {
+                          newIndex--;
+                        }
+
                         final page = pages.removeAt(oldIndex);
                         pages.insert(newIndex, page);
                       });
                     },
                     itemBuilder: (context, index) {
-                      return Card(
-                        key: ValueKey(pages[index]),
-                        margin: const EdgeInsets.only(bottom: 12),
-                        color: Colors.white,
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(10),
-                          leading: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.memory(
-                              pages[index],
-                              width: 62,
-                              height: 78,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          title: Text(
-                            'Page ${index + 1}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: const Text('Tap to preview'),
-                          onTap: () => openPage(index),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: 'Delete page',
-                                onPressed: () => deletePage(index),
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.red,
-                                ),
+                      return Container(
+                        key: ValueKey(index),
+                        margin: const EdgeInsets.only(bottom: 13),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(9),
+                              child: Image.memory(
+                                pages[index],
+                                width: 75,
+                                height: 95,
+                                fit: BoxFit.cover,
                               ),
-                              const Icon(
-                                Icons.drag_handle,
-                                color: Colors.grey,
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Page ${index + 1}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextButton(
+                                    onPressed: () {
+                                      openFullPreview(index);
+                                    },
+                                    child: const Text('View page'),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                deletePage(index);
+                              },
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.drag_handle,
+                              color: Colors.grey,
+                            ),
+                          ],
                         ),
                       );
                     },
@@ -878,14 +1120,18 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                   padding: const EdgeInsets.all(16),
                   child: SizedBox(
                     width: double.infinity,
+                    height: 52,
                     child: ElevatedButton.icon(
-                      onPressed: () => Navigator.pop(context, pages),
-                      icon: const Icon(Icons.check),
-                      label: const Text('Save Page Order'),
+                      onPressed: pages.isEmpty
+                          ? null
+                          : () {
+                              Navigator.pop(context, pages);
+                            },
+                      icon: const Icon(Icons.picture_as_pdf),
+                      label: const Text('Create PDF'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1769E8),
+                        backgroundColor: primaryBlue,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 15),
                       ),
                     ),
                   ),
@@ -895,6 +1141,10 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     );
   }
 }
+
+// --------------------------------------------------
+// FULL PAGE PREVIEW
+// --------------------------------------------------
 
 class FullPagePreview extends StatelessWidget {
   final Uint8List imageBytes;
