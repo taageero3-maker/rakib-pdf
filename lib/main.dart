@@ -484,6 +484,23 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
+  Future<void> reviewPages() async {
+    final result = await Navigator.push<List<Uint8List>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScanPreviewScreen(pages: List.of(pages)),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    setState(() {
+      pages
+        ..clear()
+        ..addAll(result);
+    });
+  }
+
   Future<void> savePdf() async {
     if (pages.isEmpty || savingPdf) return;
 
@@ -613,7 +630,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         IconButton(
-                          onPressed: pages.isEmpty
+                          onPressed: pages.isEmpty || savingPdf
                               ? null
                               : () => setState(() => pages.removeLast()),
                           icon: const Icon(
@@ -652,21 +669,37 @@ class _ScannerScreenState extends State<ScannerScreen> {
                         IconButton(
                           onPressed: pages.isEmpty || savingPdf
                               ? null
-                              : savePdf,
+                              : reviewPages,
                           icon: const Icon(
-                            Icons.picture_as_pdf,
+                            Icons.preview_outlined,
                             color: Colors.white,
                             size: 30,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Text(
-                      'Take photos, then save them as one PDF',
-                      style: TextStyle(color: Colors.white.withOpacity(0.8)),
+                      'Take photos, then review your pages',
+                      style: TextStyle(color: Colors.white70),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: pages.isEmpty || savingPdf
+                            ? null
+                            : reviewPages,
+                        icon: const Icon(Icons.edit_document),
+                        label: const Text('Review & Organize Pages'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white54),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -690,6 +723,207 @@ class _ScannerScreenState extends State<ScannerScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class ScanPreviewScreen extends StatefulWidget {
+  final List<Uint8List> pages;
+
+  const ScanPreviewScreen({super.key, required this.pages});
+
+  @override
+  State<ScanPreviewScreen> createState() => _ScanPreviewScreenState();
+}
+
+class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
+  late List<Uint8List> pages;
+
+  @override
+  void initState() {
+    super.initState();
+    pages = List.of(widget.pages);
+  }
+
+  void deletePage(int index) {
+    setState(() {
+      pages.removeAt(index);
+    });
+  }
+
+  void openPage(int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FullPagePreview(
+          imageBytes: pages[index],
+          pageNumber: index + 1,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FB),
+      appBar: AppBar(
+        title: const Text('Review Pages'),
+        backgroundColor: Colors.white,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, pages),
+            child: const Text(
+              'Done',
+              style: TextStyle(
+                color: Color(0xFF1769E8),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: pages.isEmpty
+          ? const Center(
+              child: Text('All pages have been removed.'),
+            )
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.description_outlined,
+                        color: Color(0xFF1769E8),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '${pages.length} pages',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Text(
+                        'Hold and drag to reorder',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ReorderableListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 5,
+                    ),
+                    itemCount: pages.length,
+                    onReorder: (oldIndex, newIndex) {
+                      setState(() {
+                        if (newIndex > oldIndex) newIndex--;
+                        final page = pages.removeAt(oldIndex);
+                        pages.insert(newIndex, page);
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      return Card(
+                        key: ValueKey(pages[index]),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        color: Colors.white,
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(10),
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.memory(
+                              pages[index],
+                              width: 62,
+                              height: 78,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          title: Text(
+                            'Page ${index + 1}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: const Text('Tap to preview'),
+                          onTap: () => openPage(index),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: 'Delete page',
+                                onPressed: () => deletePage(index),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                ),
+                              ),
+                              const Icon(
+                                Icons.drag_handle,
+                                color: Colors.grey,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(context, pages),
+                      icon: const Icon(Icons.check),
+                      label: const Text('Save Page Order'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1769E8),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class FullPagePreview extends StatelessWidget {
+  final Uint8List imageBytes;
+  final int pageNumber;
+
+  const FullPagePreview({
+    super.key,
+    required this.imageBytes,
+    required this.pageNumber,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text('Page $pageNumber'),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4,
+          child: Image.memory(
+            imageBytes,
+            fit: BoxFit.contain,
+          ),
+        ),
       ),
     );
   }
