@@ -1106,23 +1106,24 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                                     ),
                                   ),
                                   Row(
-  children: [
-    TextButton(
-      onPressed: () {
-        openFullPreview(index);
-      },
-      child: const Text('View page'),
-    ),
-    TextButton.icon(
-      onPressed: () {
-        editPage(index);
-      },
-      icon: const Icon(Icons.edit, size: 16),
-      label: const Text('Edit'),
-    ),
-  ],
-),
-                            IconButton(
+                                    children: [
+                                      TextButton(
+                                        onPressed: () {
+                                  openFullPreview(index);
+                                        },
+                                        child: const Text('View page'),
+                                           ),
+                                       TextButton.icon(
+                                         onPressed: () { 
+                                           editPage(index);
+                                         },
+                                   icon: const Icon(Icons.edit, size: 16),
+                                                label: const Text('Edit'),
+                                    ),
+                                  ],
+                                ),
+                                  
+                              IconButton(
                               onPressed: () {
                                 deletePage(index);
                               },
