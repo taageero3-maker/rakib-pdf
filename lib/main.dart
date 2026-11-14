@@ -1375,16 +1375,27 @@ class _ScanEditorScreenState extends State<ScanEditorScreen> {
       final processor = const DocumentProcessor();
 
       final result = await processor.crop(
-        input,
-        corners!,
-        filter: selectedFilter,
-        output: ScanOutputFormat.png,
-        background: true,
-      );
+  input,
+  corners!,
+  filter: selectedFilter,
+  output: ScanOutputFormat.png,
+  background: true,
+);
 
-      if (!mounted) return;
+if (!mounted) return;
 
-      Navigator.pop(context, result.bytes);
+if (result == null) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Crop failed. Please try again.'),
+    ),
+  );
+  return;
+}
+
+Navigator.pop(context, result.bytes); 
+
+    
     } catch (e) {
       if (!mounted) return;
 
