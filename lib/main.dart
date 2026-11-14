@@ -1385,6 +1385,92 @@ class _ScanEditorScreenState extends State<ScanEditorScreen> {
 
     updateCorner(normalized);
   }
+  
+Future<void> rotateImage() async {
+  if (processing || loading || decodedImage == null) return;
+
+  setState(() {
+    processing = true;
+  });
+
+  try {
+    final image = decodedImage!;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+
+    canvas.translate(image.height.toDouble(), 0);
+    canvas.rotate(math.pi / 2);
+
+    canvas.drawImage(
+      image,
+      Offset.zero,
+      Paint(),
+    );
+
+    final picture = recorder.endRecording();
+
+    final rotatedImage = await picture.toImage(
+      image.height,
+      image.width,
+    );
+
+    final byteData = await rotatedImage.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+
+    if (byteData == null) {
+      throw Exception('Could not rotate image.');
+    }
+
+    final rotatedBytes = byteData.buffer.asUint8List(
+      byteData.offsetInBytes,
+      byteData.lengthInBytes,
+    );
+
+    final detector = DocumentDetector();
+
+    final detectedCorners = await detector.detect(
+      ScanInput.bytes(
+        rotatedBytes,
+        width: rotatedImage.width,
+        height: rotatedImage.height,
+      ),
+      sensitivity: DetectionSensitivity.lenient,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      originalBytes = rotatedBytes;
+      decodedImage = rotatedImage;
+
+      corners = detectedCorners ??
+          const DocumentCorners(
+            topLeft: (x: 0.01, y: 0.01),
+            topRight: (x: 0.99, y: 0.01),
+            bottomRight: (x: 0.99, y: 0.99),
+            bottomLeft: (x: 0.01, y: 0.99),
+          );
+
+      selectedCorner = -1;
+    });
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Rotate error: $e'),
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        processing = false;
+      });
+    }
+  }
+}
 
   Future<void> applyCrop() async {
     if (corners == null || processing) return;
