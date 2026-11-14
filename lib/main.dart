@@ -1180,3 +1180,443 @@ class FullPagePreview extends StatelessWidget {
     );
   }
 }
+// --------------------------------------------------
+// SCAN EDITOR
+// --------------------------------------------------
+
+class ScanEditorScreen extends StatefulWidget {
+  final Uint8List imageBytes;
+
+  const ScanEditorScreen({
+    super.key,
+    required this.imageBytes,
+  });
+
+  @override
+  State<ScanEditorScreen> createState() => _ScanEditorScreenState();
+}
+
+class _ScanEditorScreenState extends State<ScanEditorScreen> {
+  late Uint8List originalBytes;
+
+  ui.Image? decodedImage;
+  DocumentCorners? corners;
+
+  bool loading = true;
+  bool processing = false;
+
+  ScanFilter selectedFilter = ScanFilter.none;
+
+  String? errorMessage;
+  int selectedCorner = -1;
+
+  final List<ScanFilter> filters = [
+    ScanFilter.none,
+    ScanFilter.grayscale,
+    ScanFilter.enhance,
+    ScanFilter.blackWhite,
+    ScanFilter.sharpen,
+  ];
+
+  final List<String> filterNames = [
+    'Original',
+    'Grayscale',
+    'Enhance',
+    'Black & White',
+    'Sharpen',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    originalBytes = widget.imageBytes;
+    loadImage();
+  }
+
+  Future<void> loadImage() async {
+    try {
+      final codec = await ui.instantiateImageCodec(originalBytes);
+      final frame = await codec.getNextFrame();
+
+      decodedImage = frame.image;
+
+      final detector = DocumentDetector();
+
+      final detectedCorners = await detector.detect(
+        ScanInput.bytes(
+          originalBytes,
+          width: decodedImage!.width,
+          height: decodedImage!.height,
+        ),
+        sensitivity: DetectionSensitivity.lenient,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        corners = detectedCorners ??
+            const DocumentCorners(
+              topLeft: (x: 0.01, y: 0.01),
+              topRight: (x: 0.99, y: 0.01),
+              bottomRight: (x: 0.99, y: 0.99),
+              bottomLeft: (x: 0.01, y: 0.99),
+            );
+
+        loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        loading = false;
+        errorMessage = e.toString();
+      });
+    }
+  }
+
+  List<Offset> get cornerPositions {
+    if (corners == null) return [];
+
+    return [
+      Offset(corners!.topLeft.x, corners!.topLeft.y),
+      Offset(corners!.topRight.x, corners!.topRight.y),
+      Offset(corners!.bottomRight.x, corners!.bottomRight.y),
+      Offset(corners!.bottomLeft.x, corners!.bottomLeft.y),
+    ];
+  }
+
+  void updateCorner(Offset position) {
+    if (corners == null || decodedImage == null) return;
+
+    final x = position.dx.clamp(0.0, 1.0);
+    final y = position.dy.clamp(0.0, 1.0);
+
+    setState(() {
+      switch (selectedCorner) {
+        case 0:
+          corners = corners!.copyWith(
+            topLeft: (x: x, y: y),
+          );
+          break;
+
+        case 1:
+          corners = corners!.copyWith(
+            topRight: (x: x, y: y),
+          );
+          break;
+
+        case 2:
+          corners = corners!.copyWith(
+            bottomRight: (x: x, y: y),
+          );
+          break;
+
+        case 3:
+          corners = corners!.copyWith(
+            bottomLeft: (x: x, y: y),
+          );
+          break;
+      }
+    });
+  }
+
+  void startDragging(Offset position, Size size) {
+    if (corners == null) return;
+
+    final normalized = Offset(
+      (position.dx / size.width).clamp(0.0, 1.0),
+      (position.dy / size.height).clamp(0.0, 1.0),
+    );
+
+    double nearestDistance = double.infinity;
+    int nearestIndex = -1;
+
+    for (int i = 0; i < cornerPositions.length; i++) {
+      final distance =
+          (cornerPositions[i] - normalized).distance;
+
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+
+    if (nearestDistance < 0.15) {
+      selectedCorner = nearestIndex;
+      updateCorner(normalized);
+    }
+  }
+
+  void dragCorner(Offset position, Size size) {
+    if (selectedCorner == -1) return;
+
+    final normalized = Offset(
+      (position.dx / size.width).clamp(0.0, 1.0),
+      (position.dy / size.height).clamp(0.0, 1.0),
+    );
+
+    updateCorner(normalized);
+  }
+
+  Future<void> applyCrop() async {
+    if (corners == null || processing) return;
+
+    setState(() {
+      processing = true;
+    });
+
+    try {
+      final input = ScanInput.bytes(
+        originalBytes,
+        width: decodedImage!.width,
+        height: decodedImage!.height,
+      );
+
+      final processor = const DocumentProcessor();
+
+      final result = await processor.crop(
+        input,
+        corners!,
+        filter: selectedFilter,
+        output: ScanOutputFormat.png,
+        background: true,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pop(context, result.bytes);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Crop error: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          processing = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: lightBackground,
+      appBar: AppBar(
+        title: const Text(
+          'Edit Document',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.white,
+      ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(errorMessage!),
+                  ),
+                )
+              : Column(
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        'Drag the four corners to adjust the document.',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+
+                    Expanded(
+                      child: Center(
+                        child: AspectRatio(
+                          aspectRatio: decodedImage!.width /
+                              decodedImage!.height,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final size = Size(
+                                constraints.maxWidth,
+                                constraints.maxHeight,
+                              );
+
+                              return GestureDetector(
+                                onPanStart: (details) {
+                                  startDragging(
+                                    details.localPosition,
+                                    size,
+                                  );
+                                },
+                                onPanUpdate: (details) {
+                                  dragCorner(
+                                    details.localPosition,
+                                    size,
+                                  );
+                                },
+                                onPanEnd: (_) {
+                                  selectedCorner = -1;
+                                },
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Image.memory(
+                                      originalBytes,
+                                      fit: BoxFit.fill,
+                                    ),
+                                    CustomPaint(
+                                      painter: DocumentCornersPainter(
+                                        positions: cornerPositions,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      color: Colors.white,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Filters',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          SizedBox(
+                            height: 42,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: filters.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 8),
+                              itemBuilder: (context, index) {
+                                return ChoiceChip(
+                                  label: Text(filterNames[index]),
+                                  selected:
+                                      selectedFilter == filters[index],
+                                  onSelected: (_) {
+                                    setState(() {
+                                      selectedFilter = filters[index];
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+
+                          const SizedBox(height: 18),
+
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: ElevatedButton.icon(
+                              onPressed:
+                                  processing ? null : applyCrop,
+                              icon: processing
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.crop),
+                              label: Text(
+                                processing
+                                    ? 'Processing...'
+                                    : 'Apply Crop',
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryBlue,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+    );
+  }
+}
+
+// --------------------------------------------------
+// DOCUMENT CORNERS PAINTER
+// --------------------------------------------------
+
+class DocumentCornersPainter extends CustomPainter {
+  final List<Offset> positions;
+
+  DocumentCornersPainter({
+    required this.positions,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (positions.length != 4) return;
+
+    final points = positions.map((point) {
+      return Offset(
+        point.dx * size.width,
+        point.dy * size.height,
+      );
+    }).toList();
+
+    final linePaint = Paint()
+      ..color = Colors.greenAccent
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..moveTo(points[0].dx, points[0].dy)
+      ..lineTo(points[1].dx, points[1].dy)
+      ..lineTo(points[2].dx, points[2].dy)
+      ..lineTo(points[3].dx, points[3].dy)
+      ..close();
+
+    canvas.drawPath(path, linePaint);
+
+    final handlePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = Colors.green
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+
+    for (final point in points) {
+      canvas.drawCircle(point, 10, handlePaint);
+      canvas.drawCircle(point, 10, borderPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant DocumentCornersPainter oldDelegate,
+  ) {
+    return oldDelegate.positions != positions;
+  }
+}
+
+
