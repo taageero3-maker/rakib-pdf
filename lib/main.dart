@@ -975,6 +975,22 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       pages.removeAt(index);
     });
   }
+  Future<void> editPage(int index) async {
+  final editedImage = await Navigator.push<Uint8List>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ScanEditorScreen(
+        imageBytes: pages[index],
+      ),
+    ),
+  );
+
+  if (editedImage != null && mounted) {
+    setState(() {
+      pages[index] = editedImage;
+    });
+  }
+}
 
   void openFullPreview(int index) {
     Navigator.push(
