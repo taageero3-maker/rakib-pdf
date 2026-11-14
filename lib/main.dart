@@ -1532,12 +1532,19 @@ Navigator.pop(context, result.bytes);
     return Scaffold(
       backgroundColor: lightBackground,
       appBar: AppBar(
-        title: const Text(
-          'Edit Document',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-      ),
+  title: const Text(
+    'Edit Document',
+    style: TextStyle(fontWeight: FontWeight.bold),
+  ),
+  backgroundColor: Colors.white,
+  actions: [
+    IconButton(
+      onPressed: processing || loading ? null : rotateImage,
+      tooltip: 'Rotate 90°',
+      icon: const Icon(Icons.rotate_right),
+    ),
+  ],
+),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : errorMessage != null
