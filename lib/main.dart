@@ -1059,89 +1059,92 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                     ],
                   ),
                 ),
-                Expanded(
-                  child: ReorderableListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: pages.length,
-                    onReorder: (oldIndex, newIndex) {
-                      setState(() {
-                        if (newIndex > oldIndex) {
-                          newIndex--;
-                        }
-
-                        final page = pages.removeAt(oldIndex);
-                        pages.insert(newIndex, page);
-                      });
-                    },
-                    itemBuilder: (context, index) {
-                      return Container(
-                        key: ValueKey(index),
-                        margin: const EdgeInsets.only(bottom: 13),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(9),
-                              child: Image.memory(
-                                pages[index],
-                                width: 75,
-                                height: 95,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Page ${index + 1}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Row(
-                                    children: [
-                                      TextButton(
-                                        onPressed: () {
-                                  openFullPreview(index);
-                                        },
-                                        child: const Text('View page'),
-                                           ),
-                                       TextButton.icon(
-                                         onPressed: () { 
-                                           editPage(index);
-                                         },
-                                   icon: const Icon(Icons.edit, size: 16),
-                                                label: const Text('Edit'),
-                                    ),
-                                  ],
-                                ),
-                                  
-                              IconButton(
-                              onPressed: () {
-                                deletePage(index);
-                              },
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                color: Colors.red,
-                              ),
-                            ),
-                            const Icon(
-                              Icons.drag_handle,
-                              color: Colors.grey,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                
+Expanded(
+  child: ReorderableListView.builder(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    itemCount: pages.length,
+    onReorder: (oldIndex, newIndex) {
+      setState(() {
+        if (newIndex > oldIndex) {
+          newIndex--;
+        }
+        final page = pages.removeAt(oldIndex);
+        pages.insert(newIndex, page);
+      });
+    },
+    itemBuilder: (context, index) {
+      return Container(
+        key: ValueKey(index),
+        margin: const EdgeInsets.only(bottom: 13),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: Image.memory(
+                pages[index],
+                width: 75,
+                height: 95,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Page ${index + 1}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          openFullPreview(index);
+                        },
+                        child: const Text('View page'),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          editPage(index);
+                        },
+                        icon: const Icon(Icons.edit, size: 16),
+                        label: const Text('Edit'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                deletePage(index);
+              },
+              icon: const Icon(
+                Icons.delete_outline,
+                color: Colors.red,
+              ),
+            ),
+            const Icon(
+              Icons.drag_handle,
+              color: Colors.grey,
+            ),
+          ],
+        ),
+      );
+    },
+  ),
+),
+
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: SizedBox(
