@@ -16,6 +16,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pdf_document/pdf_document.dart' as pdfdoc;
+import 'package:file_compression_plus/file_compression_plus.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -256,7 +257,80 @@ Future<void> splitPdfFile() async {
         );
       },
     );
+    Future<void> compressPdfFile() async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
 
+    if (result == null) return;
+
+    final selectedFile = result.files.single;
+
+    File? inputFile;
+
+    if (selectedFile.path != null) {
+      inputFile = File(selectedFile.path!);
+    } else if (selectedFile.bytes != null) {
+      final tempDir = await getTemporaryDirectory();
+      inputFile = File(
+        '${tempDir.path}/compress_input_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await inputFile.writeAsBytes(selectedFile.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('Could not read PDF file');
+    }
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Compressing PDF...')),
+    );
+
+    final folder = await getPdfFolder();
+
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final fileName = 'Compressed_$stamp.pdf';
+    final outputPath = '${folder.path}/$fileName';
+
+    final compression = await FileCompressor.compressPdfWithResult(
+      file: inputFile,
+      compressionLevel: PdfCompressionLevel.best,
+      removeMetadata: true,
+      outputPath: outputPath,
+      skipIfLarger: true,
+      deleteOriginal: false,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      documents.insert(0, {
+        'name': fileName,
+        'path': compression.file.path,
+      });
+    });
+
+    final message = compression.wasSkipped
+        ? 'PDF was already small. Original size: ${formatBytes(compression.originalSize)}'
+        : 'Compressed: ${formatBytes(compression.originalSize)} → ${formatBytes(compression.compressedSize)} (${compression.savedPercentage.toStringAsFixed(1)}% saved)';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Compression failed: $e')),
+    );
+  }
+}
+    
     controller.dispose();
 
     if (expression == null || expression.isEmpty) return;
