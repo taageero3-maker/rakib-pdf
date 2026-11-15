@@ -380,7 +380,148 @@ Future<void> splitPdfFile() async {
     );
   }
 }
-  
+  Future<void> protectPdfFile() async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selectedFile = result.files.single;
+
+    File? inputFile;
+
+    if (selectedFile.path != null) {
+      inputFile = File(selectedFile.path!);
+    } else if (selectedFile.bytes != null) {
+      final tempDir = await getTemporaryDirectory();
+      inputFile = File(
+        '${tempDir.path}/protect_input_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await inputFile.writeAsBytes(selectedFile.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('Could not read PDF file');
+    }
+
+    if (!mounted) return;
+
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+
+    final password = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Protect PDF'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Enter password',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm password',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (passwordController.text.isEmpty) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a password'),
+                    ),
+                  );
+                  return;
+                }
+
+                if (passwordController.text != confirmController.text) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('Passwords do not match'),
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.pop(
+                  dialogContext,
+                  passwordController.text,
+                );
+              },
+              child: const Text('Protect'),
+            ),
+          ],
+        );
+      },
+    );
+
+    passwordController.dispose();
+    confirmController.dispose();
+
+    if (password == null) return;
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Protecting PDF...')),
+    );
+
+    final folder = await getPdfFolder();
+
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final fileName = 'Protected_$stamp.pdf';
+    final outputPath = '${folder.path}/$fileName';
+
+    await AresDefenceLabsLocksmithPdf.protectPdf(
+      inputPath: inputFile.path,
+      outputPath: outputPath,
+      password: password,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      documents.insert(0, {
+        'name': fileName,
+        'path': outputPath,
+      });
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('PDF protected successfully!'),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('PDF protection failed: $e')),
+    );
+  }
+}
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
