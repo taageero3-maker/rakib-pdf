@@ -151,7 +151,7 @@ Future<void> mergePdfFiles() async {
       pdfBytes.add(bytes);
     }
 
-    final mergedBytes = PdfMerger.merge(pdfBytes);
+    final mergedBytes = pdfdoc.PdfMerger.merge(pdfBytes);
 
     final folder = await getPdfFolder();
 
