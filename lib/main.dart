@@ -108,12 +108,89 @@ Future<void> loadDocuments() async {
     debugPrint('Loading documents error: $e');
   }
 }
+  
+Future<void> mergePdfFiles() async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      allowMultiple: true,
+      withData: true,
+    );
+
+    if (result == null || result.files.length < 2) {
+      if (result != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select at least 2 PDF files'),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Merging PDFs...')),
+    );
+
+    final List<Uint8List> pdfBytes = [];
+
+    for (final selectedFile in result.files) {
+      Uint8List? bytes = selectedFile.bytes;
+
+      if (bytes == null && selectedFile.path != null) {
+        bytes = await File(selectedFile.path!).readAsBytes();
+      }
+
+      if (bytes == null) {
+        throw Exception('Could not read ${selectedFile.name}');
+      }
+
+      pdfBytes.add(bytes);
+    }
+
+    final mergedBytes = PdfMerger.merge(pdfBytes);
+
+    final folder = await getPdfFolder();
+
+    final fileName =
+        'Merged_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+    final outputFile = File('${folder.path}/$fileName');
+
+    await outputFile.writeAsBytes(mergedBytes);
+
+    if (!mounted) return;
+
+    setState(() {
+      documents.insert(0, {
+        'name': fileName,
+        'path': outputFile.path,
+      });
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('PDFs merged successfully!'),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Merge failed: $e')),
+    );
+  }
+}
+
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
   }
-
+ 
   Future<Directory> getPdfFolder() async {
     final directory = await getApplicationDocumentsDirectory();
     final folder = Directory('${directory.path}/RAKIB_PDF');
