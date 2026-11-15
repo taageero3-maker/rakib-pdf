@@ -2559,7 +2559,9 @@ Future<void> askForPdfPassword() async {
       body: Stack(
         children: [
           PDFView(
+            key: ValueKey(viewerReloadCount),
             filePath: widget.filePath,
+            password: pdfPassword,
             enableSwipe: true,
             swipeHorizontal: false,
             autoSpacing: true,
