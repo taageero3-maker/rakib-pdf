@@ -534,9 +534,21 @@ Future<void> loadDocuments() async {
       ),
     );
   }
-
-  Widget documentTile(Map<String, dynamic> document) {
-    return Container(
+Widget documentTile(Map<String, dynamic> document) {
+  return InkWell(
+    borderRadius: BorderRadius.circular(15),
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerScreen(
+            filePath: document['path'] as String,
+            title: document['name'] as String,
+          ),
+        ),
+      );
+    },
+    child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
@@ -560,7 +572,7 @@ Future<void> loadDocuments() async {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              document['name'],
+              document['name'] as String,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -570,15 +582,16 @@ Future<void> loadDocuments() async {
             ),
           ),
           const Icon(
-            Icons.check_circle,
-            color: Colors.green,
-            size: 19,
+            Icons.arrow_forward_ios,
+            color: Colors.grey,
+            size: 17,
           ),
         ],
       ),
-    );
-  }
-
+    ),
+  );
+}
+  
   // DOCUMENTS PAGE
 
   Widget documentsPage() {
@@ -1794,5 +1807,123 @@ class DocumentCornersPainter extends CustomPainter {
     return oldDelegate.positions != positions;
   }
 }
+// --------------------------------------------------
+// PDF VIEWER
+// --------------------------------------------------
 
+class PdfViewerScreen extends StatefulWidget {
+  final String filePath;
+  final String title;
+
+  const PdfViewerScreen({
+    super.key,
+    required this.filePath,
+    required this.title,
+  });
+
+  @override
+  State<PdfViewerScreen> createState() => _PdfViewerScreenState();
+}
+
+class _PdfViewerScreenState extends State<PdfViewerScreen> {
+  int? totalPages;
+  int currentPage = 1;
+  bool isReady = false;
+  String? errorMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFE9EDF4),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: Text(
+          widget.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          if (totalPages != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Text(
+                  '$currentPage / $totalPages',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: darkText,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          PDFView(
+            filePath: widget.filePath,
+            enableSwipe: true,
+            swipeHorizontal: false,
+            autoSpacing: true,
+            pageFling: true,
+            backgroundColor: const Color(0xFFE9EDF4),
+            fitPolicy: FitPolicy.WIDTH,
+            onRender: (pages) {
+              if (!mounted) return;
+
+              setState(() {
+                totalPages = pages;
+                isReady = true;
+              });
+            },
+            onPageChanged: (page, total) {
+              if (!mounted) return;
+
+              setState(() {
+                currentPage = page + 1;
+                totalPages = total;
+              });
+            },
+            onError: (error) {
+              if (!mounted) return;
+
+              setState(() {
+                errorMessage = error.toString();
+              });
+            },
+            onPageError: (page, error) {
+              if (!mounted) return;
+
+              setState(() {
+                errorMessage = 'Page ${page + 1}: $error';
+              });
+            },
+          ),
+
+          if (!isReady && errorMessage == null)
+            const Center(
+              child: CircularProgressIndicator(
+                color: primaryBlue,
+              ),
+            ),
+
+          if (errorMessage != null)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  'PDF could not be opened:\n$errorMessage',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
