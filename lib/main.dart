@@ -257,7 +257,56 @@ Future<void> splitPdfFile() async {
         );
       },
     );
-    Future<void> compressPdfFile() async {
+    
+    
+    controller.dispose();
+
+    if (expression == null || expression.isEmpty) return;
+
+    final parts = pdfdoc.PdfSplitter.splitExpression(
+      bytes,
+      expression,
+    );
+
+    final folder = await getPdfFolder();
+
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+
+    final newDocuments = <Map<String, dynamic>>[];
+
+    for (int i = 0; i < parts.length; i++) {
+      final fileName = 'Split_${stamp}_${i + 1}.pdf';
+
+      final outputFile = File('${folder.path}/$fileName');
+
+      await outputFile.writeAsBytes(parts[i]);
+
+      newDocuments.add({
+        'name': fileName,
+        'path': outputFile.path,
+      });
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      documents.insertAll(0, newDocuments);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${parts.length} PDF files created successfully!'),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Split failed: $e')),
+    );
+  }
+}
+  Future<void> compressPdfFile() async {
   try {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -330,55 +379,6 @@ Future<void> splitPdfFile() async {
     );
   }
 }
-    
-    controller.dispose();
-
-    if (expression == null || expression.isEmpty) return;
-
-    final parts = pdfdoc.PdfSplitter.splitExpression(
-      bytes,
-      expression,
-    );
-
-    final folder = await getPdfFolder();
-
-    final stamp = DateTime.now().millisecondsSinceEpoch;
-
-    final newDocuments = <Map<String, dynamic>>[];
-
-    for (int i = 0; i < parts.length; i++) {
-      final fileName = 'Split_${stamp}_${i + 1}.pdf';
-
-      final outputFile = File('${folder.path}/$fileName');
-
-      await outputFile.writeAsBytes(parts[i]);
-
-      newDocuments.add({
-        'name': fileName,
-        'path': outputFile.path,
-      });
-    }
-
-    if (!mounted) return;
-
-    setState(() {
-      documents.insertAll(0, newDocuments);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${parts.length} PDF files created successfully!'),
-      ),
-    );
-  } catch (e) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Split failed: $e')),
-    );
-  }
-}
-
   
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
