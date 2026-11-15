@@ -483,11 +483,11 @@ Future<void> mergePdfFiles() async {
                   pickImagesToPdf,
                 ),
                 toolCard(
-                  Icons.merge_type,
-                  'Merge PDF',
-                  const Color(0xFF8B5CF6),
-                  () => comingSoon('Merge PDF'),
-                ),
+  Icons.merge_type,
+  'Merge PDF',
+  const Color(0xFF8B5CF6),
+  mergePdfFiles,
+),
                 toolCard(
                   Icons.compress,
                   'Compress PDF',
