@@ -2585,19 +2585,19 @@ totalPages = total;
               });
             },
             onError: (error) {
-              if (!mounted) return;
+  if (!mounted) return;
 
-              setState(() {
-                errorMessage = error.toString();
-              });
-            },
-            onPageError: (page, error) {
-              if (!mounted) return;
+  final message = error.toString().toLowerCase();
 
-              setState(() {
-                errorMessage = 'Page ${(page ?? 0) + 1}: $error';
-              });
-            },
+  if (message.contains('password')) {
+    askForPdfPassword();
+    return;
+  }
+
+  setState(() {
+    errorMessage = error.toString();
+  });
+},
           ),
 
           if (!isReady && errorMessage == null)
