@@ -185,6 +185,127 @@ Future<void> mergePdfFiles() async {
   }
 }
 
+Future<void> splitPdfFile() async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selectedFile = result.files.single;
+
+    Uint8List? bytes = selectedFile.bytes;
+
+    if (bytes == null && selectedFile.path != null) {
+      bytes = await File(selectedFile.path!).readAsBytes();
+    }
+
+    if (bytes == null) {
+      throw Exception('Could not read PDF file');
+    }
+
+    final pdfDocument = PdfDocument.open(bytes);
+    final pageCount = pdfDocument.pageCount;
+
+    if (!mounted) return;
+
+    final controller = TextEditingController();
+
+    final expression = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Split PDF'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('This PDF has $pageCount pages.'),
+              const SizedBox(height: 12),
+              const Text(
+                'Enter page ranges. Each comma creates a separate PDF.',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  hintText: 'Example: 1-3, 4-6',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  controller.text.trim(),
+                );
+              },
+              child: const Text('Split'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (expression == null || expression.isEmpty) return;
+
+    final parts = PdfSplitter.splitExpression(
+      bytes,
+      expression,
+    );
+
+    final folder = await getPdfFolder();
+
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+
+    final newDocuments = <Map<String, dynamic>>[];
+
+    for (int i = 0; i < parts.length; i++) {
+      final fileName = 'Split_${stamp}_${i + 1}.pdf';
+
+      final outputFile = File('${folder.path}/$fileName');
+
+      await outputFile.writeAsBytes(parts[i]);
+
+      newDocuments.add({
+        'name': fileName,
+        'path': outputFile.path,
+      });
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      documents.insertAll(0, newDocuments);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${parts.length} PDF files created successfully!'),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Split failed: $e')),
+    );
+  }
+}
+
+  
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
