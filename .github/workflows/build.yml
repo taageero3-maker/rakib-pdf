@@ -29,34 +29,42 @@ jobs:
       - name: Generate Android project
         run: flutter create --platforms=android --org com.rakib .
         
-        
       - name: Configure JP2 dependency
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
-          settings = Path("android/settings.gradle.kts")
-          app = Path("android/app/build.gradle.kts")
+          root = Path("android")
+          root_gradle = next((p for p in [root / "build.gradle", root / "build.gradle.kts"] if p.exists()), None)
+          app_gradle = next((p for p in [root / "app/build.gradle", root / "app/build.gradle.kts"] if p.exists()), None)
 
-          content = settings.read_text()
-          marker = "dependencyResolutionManagement"
-          start = content.find(marker)
+          if not root_gradle or not app_gradle:
+              raise Exception("Gradle files lama helin")
 
-          if start == -1:
-              raise Exception("dependencyResolutionManagement lama helin")
+          root_text = root_gradle.read_text()
+          app_text = app_gradle.read_text()
 
-          repo = content.find("repositories {", start)
+          if "jitpack.io" not in root_text:
+              pattern = r"(allprojects\s*\{\s*repositories\s*\{)"
+              match = re.search(pattern, root_text)
+              if not match:
+                  raise Exception("allprojects repositories lama helin")
+              root_text = root_text[:match.end()] + '\n        maven { url "https://jitpack.io" }\n' + root_text[match.end():]
+              if root_gradle.name.endswith(".kts"):
+                  root_text = root_text.replace('maven { url "https://jitpack.io" }', 'maven(url = "https://jitpack.io")')
+              root_gradle.write_text(root_text)
 
-          if repo == -1:
-              raise Exception("Repositories lama helin")
+          if "JP2ForAndroid" not in app_text:
+              if app_gradle.name.endswith(".kts"):
+                  app_text += '\n\ndependencies {\n    runtimeOnly("com.github.Tgo1014:JP2ForAndroid:1.0.4")\n}\n'
+              else:
+                  app_text += '\n\ndependencies {\n    runtimeOnly "com.github.Tgo1014:JP2ForAndroid:1.0.4"\n}\n'
+              app_gradle.write_text(app_text)
 
-          insert = repo + len("repositories {")
-          content = content[:insert] + '\n        maven(url = "https://jitpack.io")' + content[insert:]
-          settings.write_text(content)
-
-          with app.open("a") as f:
-              f.write('\n\ndependencies {\n    runtimeOnly("com.github.Tgo1014:JP2ForAndroid:1.0.4")\n}\n')
+          print("JP2 dependency configured successfully")
           PY
+
 
       
       - name: Install dependencies
