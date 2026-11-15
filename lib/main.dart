@@ -590,40 +590,39 @@ Future<void> splitPdfFile() async {
             const SizedBox(height: 15),
 
             GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 13,
-              mainAxisSpacing: 13,
-              childAspectRatio: 1.18,
-              children: [
-                toolCard(
-                  Icons.image_outlined,
-                  'Images to PDF',
-                  const Color(0xFF2878E8),
-                  pickImagesToPdf,
-                ),
-                toolCard(
-  Icons.merge_type,
-  'Merge PDF',
-  const Color(0xFF8B5CF6),
-  mergePdfFiles,
+  crossAxisCount: 2,
+  shrinkWrap: true,
+  physics: const NeverScrollableScrollPhysics(),
+  crossAxisSpacing: 13,
+  mainAxisSpacing: 13,
+  childAspectRatio: 1.18,
+  children: [
+    toolCard(
+      Icons.image_outlined,
+      'Images to PDF',
+      const Color(0xFF2878E8),
+      pickImagesToPdf,
+    ),
+    toolCard(
+      Icons.merge_type,
+      'Merge PDF',
+      const Color(0xFF8B5CF6),
+      mergePdfFiles,
+    ),
+    toolCard(
+      Icons.compress,
+      'Compress PDF',
+      const Color(0xFF16A085),
+      () => comingSoon('Compress PDF'),
+    ),
+    toolCard(
+      Icons.content_cut,
+      'Split PDF',
+      const Color(0xFFEF8B35),
+      splitPdfFile,
+    ),
+  ],
 ),
-                toolCard(
-                  Icons.compress,
-                  'Compress PDF',
-                  const Color(0xFF16A085),
-                  () => comingSoon('Compress PDF'),
-                ),
-                toolCard(
-  Icons.content_cut,
-  'Split PDF',
-  const Color(0xFFEF8B35),
-  splitPdfFile,
-),
-                ),
-              ],
-            ),
 
             const SizedBox(height: 28),
 
