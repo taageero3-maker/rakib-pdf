@@ -15,7 +15,7 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:pdf_document/pdf_document.dart';
+import 'package:pdf_document/pdf_document.dart' as pdfdoc;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
