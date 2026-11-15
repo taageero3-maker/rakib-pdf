@@ -1884,8 +1884,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
               if (!mounted) return;
 
               setState(() {
-                currentPage = page + 1;
-                totalPages = total;
+                currentPage = (page ?? 0) + 1;
+totalPages = total;
               });
             },
             onError: (error) {
@@ -1899,7 +1899,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
               if (!mounted) return;
 
               setState(() {
-                errorMessage = 'Page ${page + 1}: $error';
+                errorMessage = 'Page ${(page ?? 0) + 1}: $error';
               });
             },
           ),
