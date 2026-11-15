@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:document_scan/document_scan.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
