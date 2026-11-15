@@ -687,7 +687,7 @@ Future<void> splitPdfFile() async {
       Icons.compress,
       'Compress PDF',
       const Color(0xFF16A085),
-      () => comingSoon('Compress PDF'),
+      compressPdfFile,
     ),
     toolCard(
       Icons.content_cut,
