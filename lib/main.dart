@@ -261,7 +261,7 @@ Future<void> splitPdfFile() async {
 
     if (expression == null || expression.isEmpty) return;
 
-    final parts = PdfSplitter.splitExpression(
+    final parts = pdfdoc.PdfSplitter.splitExpression(
       bytes,
       expression,
     );
