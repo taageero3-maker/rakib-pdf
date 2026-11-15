@@ -2462,6 +2462,68 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   String? pdfPassword;
   bool passwordDialogOpen = false;
   int viewerReloadCount = 0;
+
+  
+Future<void> askForPdfPassword() async {
+  if (passwordDialogOpen || !mounted) return;
+
+  passwordDialogOpen = true;
+  final controller = TextEditingController();
+
+  final result = await showDialog<String>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text('PDF Password'),
+        content: TextField(
+          controller: controller,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Enter PDF password',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) {
+            if (value.trim().isNotEmpty) {
+              Navigator.pop(dialogContext, value);
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                Navigator.pop(dialogContext, controller.text);
+              }
+            },
+            child: const Text('Open PDF'),
+          ),
+        ],
+      );
+    },
+  );
+
+  passwordDialogOpen = false;
+  controller.dispose();
+
+  if (!mounted) return;
+
+  if (result != null && result.isNotEmpty) {
+    setState(() {
+      pdfPassword = result;
+      viewerReloadCount++;
+      errorMessage = null;
+      isReady = false;
+      totalPages = null;
+    });
+  }
+}
+
   
   @override
   Widget build(BuildContext context) {
