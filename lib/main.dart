@@ -536,7 +536,166 @@ Future<void> loadDocuments() async {
       ),
     );
   }
+
 Widget documentTile(Map<String, dynamic> document) {
+  final String filePath = document['path'] as String;
+  final String fileName = document['name'] as String;
+
+  Future<void> renameDocument() async {
+    final controller = TextEditingController(
+      text: fileName.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
+    );
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Rename PDF'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'New document name',
+              hintText: 'Enter a name',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, controller.text.trim());
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (newName == null || newName.trim().isEmpty) return;
+
+    final cleanName = newName.trim().replaceAll(
+      RegExp(r'[\\/:*?"<>|]'),
+      '_',
+    );
+
+    final finalName = cleanName.toLowerCase().endsWith('.pdf')
+        ? cleanName
+        : '$cleanName.pdf';
+
+    final oldFile = File(filePath);
+    final newPath = '${oldFile.parent.path}/$finalName';
+
+    if (newPath == filePath) return;
+
+    try {
+      if (await File(newPath).exists()) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('A file with this name already exists.')),
+        );
+        return;
+      }
+
+      await oldFile.rename(newPath);
+
+      if (!mounted) return;
+
+      setState(() {
+        document['name'] = finalName;
+        document['path'] = newPath;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF renamed successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Rename failed: $e')),
+      );
+    }
+  }
+
+  Future<void> deleteDocument() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete PDF?'),
+          content: Text('Are you sure you want to delete "$fileName"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final file = File(filePath);
+
+      if (await file.exists()) {
+        await file.delete();
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        documents.removeWhere(
+          (item) => item['path'] == filePath,
+        );
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF deleted successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete failed: $e')),
+      );
+    }
+  }
+
+  Future<void> shareDocument() async {
+    try {
+      final file = File(filePath);
+
+      if (!await file.exists()) {
+        throw Exception('File not found');
+      }
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(filePath)],
+          subject: fileName,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Share failed: $e')),
+      );
+    }
+  }
+
   return InkWell(
     borderRadius: BorderRadius.circular(15),
     onTap: () {
@@ -544,8 +703,8 @@ Widget documentTile(Map<String, dynamic> document) {
         context,
         MaterialPageRoute(
           builder: (_) => PdfViewerScreen(
-            filePath: document['path'] as String,
-            title: document['name'] as String,
+            filePath: filePath,
+            title: fileName,
           ),
         ),
       );
@@ -574,7 +733,7 @@ Widget documentTile(Map<String, dynamic> document) {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              document['name'] as String,
+              fileName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -583,16 +742,62 @@ Widget documentTile(Map<String, dynamic> document) {
               ),
             ),
           ),
-          const Icon(
-            Icons.arrow_forward_ios,
-            color: Colors.grey,
-            size: 17,
+          PopupMenuButton<String>(
+            icon: const Icon(
+              Icons.more_vert,
+              color: Colors.grey,
+            ),
+            onSelected: (value) {
+              if (value == 'rename') {
+                renameDocument();
+              } else if (value == 'share') {
+                shareDocument();
+              } else if (value == 'delete') {
+                deleteDocument();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'rename',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit_outlined, size: 20),
+                    SizedBox(width: 10),
+                    Text('Rename'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'share',
+                child: Row(
+                  children: [
+                    Icon(Icons.share_outlined, size: 20),
+                    SizedBox(width: 10),
+                    Text('Share'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                    SizedBox(width: 10),
+                    Text(
+                      'Delete',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
     ),
   );
 }
+
   
   // DOCUMENTS PAGE
 
