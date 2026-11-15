@@ -28,7 +28,37 @@ jobs:
 
       - name: Generate Android project
         run: flutter create --platforms=android --org com.rakib .
+        
+        
+      - name: Configure JP2 dependency
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
 
+          settings = Path("android/settings.gradle.kts")
+          app = Path("android/app/build.gradle.kts")
+
+          content = settings.read_text()
+          marker = "dependencyResolutionManagement"
+          start = content.find(marker)
+
+          if start == -1:
+              raise Exception("dependencyResolutionManagement lama helin")
+
+          repo = content.find("repositories {", start)
+
+          if repo == -1:
+              raise Exception("Repositories lama helin")
+
+          insert = repo + len("repositories {")
+          content = content[:insert] + '\n        maven(url = "https://jitpack.io")' + content[insert:]
+          settings.write_text(content)
+
+          with app.open("a") as f:
+              f.write('\n\ndependencies {\n    runtimeOnly("com.github.Tgo1014:JP2ForAndroid:1.0.4")\n}\n')
+          PY
+
+      
       - name: Install dependencies
         run: flutter pub get
 
