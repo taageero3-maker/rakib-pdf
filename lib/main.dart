@@ -207,7 +207,7 @@ Future<void> splitPdfFile() async {
       throw Exception('Could not read PDF file');
     }
 
-    final pdfDocument = PdfDocument.open(bytes);
+    final pdfDocument = pdfdoc.PdfDocument.open(bytes);
     final pageCount = pdfDocument.pageCount;
 
     if (!mounted) return;
