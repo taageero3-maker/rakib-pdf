@@ -59,7 +59,50 @@ class _HomeScreenState extends State<HomeScreen> {
   bool openingScanner = false;
 
   final List<Map<String, dynamic>> documents = [];
+  @override
+void initState() {
+  super.initState();
+  loadDocuments();
+}
 
+Future<void> loadDocuments() async {
+  try {
+    final folder = await getPdfFolder();
+
+    final files = await folder
+        .list()
+        .where(
+          (file) =>
+              file is File &&
+              file.path.toLowerCase().endsWith('.pdf'),
+        )
+        .cast<File>()
+        .toList();
+
+    files.sort(
+      (a, b) => b.lastModifiedSync().compareTo(
+        a.lastModifiedSync(),
+      ),
+    );
+
+    final loadedDocuments = files.map((file) {
+      return {
+        'name': file.uri.pathSegments.last,
+        'path': file.path,
+      };
+    }).toList();
+
+    if (!mounted) return;
+
+    setState(() {
+      documents
+        ..clear()
+        ..addAll(loadedDocuments);
+    });
+  } catch (e) {
+    debugPrint('Loading documents error: $e');
+  }
+}
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
