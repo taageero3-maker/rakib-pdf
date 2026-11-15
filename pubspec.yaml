@@ -20,6 +20,7 @@ dependencies:
   file_picker: ^10.3.7
   pdf_document: ^15.0.0
   file_compression_plus: ^1.0.0
+  ares_defence_labs_lock_smith_pdf: ^0.0.8
 
 dev_dependencies:
   flutter_test:
