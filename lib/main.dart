@@ -837,6 +837,12 @@ Future<void> splitPdfFile() async {
       const Color(0xFFEF8B35),
       splitPdfFile,
     ),
+    toolCard(
+  Icons.lock,
+  'Protect PDF',
+  const Color(0xFF2563EB),
+  protectPdfFile,
+    ),
   ],
 ),
 
