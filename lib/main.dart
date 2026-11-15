@@ -2459,7 +2459,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   int currentPage = 1;
   bool isReady = false;
   String? errorMessage;
-
+  String? pdfPassword;
+  bool passwordDialogOpen = false;
+  int viewerReloadCount = 0;
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
