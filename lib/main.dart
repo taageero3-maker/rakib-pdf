@@ -1767,6 +1767,12 @@ Future<void> extractPdfPages() async {
   const Color(0xFFE53935),
   deletePdfPages,
 ),
+    toolCard(
+  Icons.file_download,
+  'Extract PDF Pages',
+  const Color(0xFF00897B),
+  extractPdfPages,
+),
   ],
 ),
 
