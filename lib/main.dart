@@ -18,7 +18,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:pdf_document/pdf_document.dart' as pdfdoc;
 import 'package:file_compression_plus/file_compression_plus.dart';
 import 'package:ares_defence_labs_lock_smith_pdf/ares_defence_labs_lock_smith_pdf.dart';
-import 'package:pdf_manipulator/pdf_manipulator.dart';
+import 'package:pdf_manipulator/pdf_manipulator.dart' as pdfman;
 import 'package:pdf_manipulator/io.dart';
 
 void main() {
@@ -959,12 +959,12 @@ Future<void> watermarkPdfFile() async {
 
             await editor.addImageStamp(
               MemorySource(logoBytes),
-              bounds: PdfRect(
-                x: 450,
-                y: 750,
-                width: 80,
-                height: 50,
-              ),
+              bounds: pdfman.PdfRect(
+  x: 450,
+  y: 750,
+  width: 80,
+  height: 50,
+),
               pages: pages,
               opacity: 0.65,
             );
