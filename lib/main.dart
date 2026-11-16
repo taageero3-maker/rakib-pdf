@@ -997,6 +997,114 @@ Future<void> watermarkPdfFile() async {
   }
 }
 
+  
+Future<void> pageNumbersPdfFile() async {
+  try {
+    // 1. Dooro PDF
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selected = result.files.single;
+    File? inputFile;
+
+    if (selected.path != null) {
+      inputFile = File(selected.path!);
+    } else if (selected.bytes != null) {
+      final temp = await getTemporaryDirectory();
+      inputFile = File(
+        '${temp.path}/numbers_input_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await inputFile.writeAsBytes(selected.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('PDF lama akhrin karin');
+    }
+
+    if (!mounted) return;
+
+    // 2. Diyaari PDF
+    final pdf = pdfman.Pdf();
+
+    try {
+      final pageCount = await pdf.read(
+        PdfFile(inputFile),
+        (document) async => document.pageCount,
+      );
+
+      if (pageCount < 1) {
+        throw Exception('PDF-ku bogag ma laha');
+      }
+
+      // 3. Samee PDF cusub
+      final folder = await getPdfFolder();
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'PageNumbers_$stamp.pdf';
+      final outputPath = '${folder.path}/$fileName';
+
+      if (!mounted) return;
+
+      showMessage('Page numbers ayaa lagu darayaa...');
+
+      final output = await FileSink.open(File(outputPath));
+
+      try {
+        await pdf.rewrite(
+          PdfFile(inputFile),
+          output,
+          (editor) async {
+            for (int i = 0; i < pageCount; i++) {
+              await editor.addWatermark(
+                '${i + 1}',
+                pages: PdfPages.single(i),
+                style: pdfman.PdfWatermarkStyle(
+                  fontSize: 11,
+                  opacity: 1.0,
+                  rotation: 0,
+                  color: pdfman.PdfColor(0, 0, 0),
+                ),
+                position: pdfman.PdfWatermarkPosition.corner(
+                  pdfman.PdfCorner.bottomRight,
+                  marginX: 30,
+                  marginY: 20,
+                ),
+              );
+            }
+          },
+        );
+
+        await output.close();
+      } catch (_) {
+        await output.abort(
+          Exception('Page numbering failed'),
+        );
+        rethrow;
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        documents.insert(0, {
+          'name': fileName,
+          'path': outputPath,
+        });
+      });
+
+      showMessage('Page numbers si guul leh ayaa loo sameeyay!');
+    } finally {
+      await pdf.dispose();
+    }
+  } catch (e) {
+    if (!mounted) return;
+    showMessage('Page numbers error: $e');
+  }
+}
+
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
