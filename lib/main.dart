@@ -1142,6 +1142,12 @@ Future<void> rotatePdfFile() async {
       const Color(0xFF16A085),
       unlockPdfFile,
     ),
+    toolCard(
+  Icons.rotate_right,
+  'Rotate PDF',
+  const Color(0xFF0EA5E9),
+  rotatePdfFile,
+),
   ],
 ),
 
