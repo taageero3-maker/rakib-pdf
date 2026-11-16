@@ -1605,6 +1605,12 @@ Future<void> deletePdfPages() async {
   const Color(0xFF2563EB),
   pageNumbersPdfFile,
 ),
+    toolCard(
+  Icons.delete_sweep,
+  'Delete PDF Pages',
+  const Color(0xFFE53935),
+  deletePdfPages,
+),
   ],
 ),
 
