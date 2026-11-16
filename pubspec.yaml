@@ -21,6 +21,7 @@ dependencies:
   pdf_document: ^15.0.0
   file_compression_plus: ^1.0.0
   ares_defence_labs_lock_smith_pdf: ^0.0.8
+  pdf_manipulator: ^6.0.0
 
 dev_dependencies:
   flutter_test:
