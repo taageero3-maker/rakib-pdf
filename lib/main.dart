@@ -931,8 +931,8 @@ Future<void> watermarkPdfFile() async {
     }
 
     final pages = pageText.isEmpty
-        ? PdfPages.all()
-        : PdfPages.single(int.parse(pageText) - 1);
+    ? pdfman.PdfPages.all()
+    : pdfman.PdfPages.single(int.parse(pageText) - 1);
 
     // 4. Kaydi PDF cusub
     final folder = await getPdfFolder();
