@@ -19,6 +19,7 @@ import 'package:pdf_document/pdf_document.dart' as pdfdoc;
 import 'package:file_compression_plus/file_compression_plus.dart';
 import 'package:ares_defence_labs_lock_smith_pdf/ares_defence_labs_lock_smith_pdf.dart';
 import 'package:pdf_manipulator/pdf_manipulator.dart' as pdfman;
+import 'package:pdf_manipulator/pdf_manipulator.dart';
 import 'package:pdf_manipulator/io.dart';
 
 void main() {
