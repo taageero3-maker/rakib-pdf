@@ -1444,6 +1444,12 @@ Future<void> pageNumbersPdfFile() async {
   const Color(0xFF8B5CF6),
   watermarkPdfFile,
 ),
+    toolCard(
+  Icons.format_list_numbered,
+  'Page Numbers',
+  const Color(0xFF2563EB),
+  pageNumbersPdfFile,
+),
   ],
 ),
 
