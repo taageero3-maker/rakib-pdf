@@ -815,6 +815,187 @@ Future<void> rotatePdfFile() async {
   }
 }
 
+  
+Future<void> watermarkPdfFile() async {
+  try {
+    // 1. Dooro PDF
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selected = result.files.single;
+    File? inputFile;
+
+    if (selected.path != null) {
+      inputFile = File(selected.path!);
+    } else if (selected.bytes != null) {
+      final temp = await getTemporaryDirectory();
+      inputFile = File(
+        '${temp.path}/watermark_input_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await inputFile.writeAsBytes(selected.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('PDF lama akhrin karin');
+    }
+
+    if (!mounted) return;
+
+    // 2. Qoraalka watermark-ka
+    final textController = TextEditingController();
+    final pageController = TextEditingController();
+
+    final settings = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Watermark PDF'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: textController,
+              decoration: const InputDecoration(
+                labelText: 'Watermark text',
+                hintText: 'Example: CONFIDENTIAL',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: pageController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Page number',
+                hintText: 'Empty = all pages',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final page = pageController.text.trim();
+
+              if (page.isNotEmpty &&
+                  (int.tryParse(page) == null ||
+                      int.parse(page) < 1)) {
+                return;
+              }
+
+              Navigator.pop(dialogContext, {
+                'text': textController.text.trim(),
+                'page': page,
+              });
+            },
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+
+    textController.dispose();
+    pageController.dispose();
+
+    if (settings == null || !mounted) return;
+
+    // 3. Dooro logo telefoonka
+    final imageResult = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['png', 'jpg', 'jpeg'],
+      withData: true,
+    );
+
+    if (imageResult == null) return;
+
+    final logoBytes = imageResult.files.single.bytes;
+
+    if (logoBytes == null) {
+      throw Exception('Logo-ga lama akhrin karin');
+    }
+
+    final watermarkText = settings['text']!;
+    final pageText = settings['page']!;
+
+    if (watermarkText.isEmpty) {
+      throw Exception('Qoraalka watermark-ka geli');
+    }
+
+    final pages = pageText.isEmpty
+        ? PdfPages.all()
+        : PdfPages.single(int.parse(pageText) - 1);
+
+    // 4. Kaydi PDF cusub
+    final folder = await getPdfFolder();
+    final fileName =
+        'Watermarked_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final outputPath = '${folder.path}/$fileName';
+
+    showMessage('Watermark ayaa lagu darayaa...');
+
+    final pdf = Pdf();
+
+    try {
+      final output = await FileSink.open(File(outputPath));
+
+      try {
+        await pdf.rewrite(
+          PdfFile(inputFile),
+          output,
+          (editor) async {
+            await editor.addWatermark(
+              watermarkText,
+              pages: pages,
+            );
+
+            await editor.addImageStamp(
+              MemorySource(logoBytes),
+              bounds: PdfRect(
+                x: 450,
+                y: 750,
+                width: 80,
+                height: 50,
+              ),
+              pages: pages,
+              opacity: 0.65,
+            );
+          },
+        );
+
+        await output.close();
+      } catch (_) {
+        await output.abort(Exception('Watermark failed'));
+        rethrow;
+      }
+    } finally {
+      await pdf.dispose();
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      documents.insert(0, {
+        'name': fileName,
+        'path': outputPath,
+      });
+    });
+
+    showMessage('Watermark si guul leh ayaa loo sameeyay!');
+  } catch (e) {
+    if (!mounted) return;
+    showMessage('Watermark error: $e');
+  }
+}
+
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
