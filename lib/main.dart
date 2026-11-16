@@ -633,7 +633,188 @@ Future<void> unlockPdfFile() async {
     );
   }
 }
+
   
+Future<void> rotatePdfFile() async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selectedFile = result.files.single;
+    File? inputFile;
+
+    if (selectedFile.path != null) {
+      inputFile = File(selectedFile.path!);
+    } else if (selectedFile.bytes != null) {
+      final tempDir = await getTemporaryDirectory();
+      inputFile = File(
+        '${tempDir.path}/rotate_input_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await inputFile.writeAsBytes(selectedFile.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('Could not read PDF file');
+    }
+
+    if (!mounted) return;
+
+    final pageController = TextEditingController();
+    int selectedAngle = 90;
+
+    final settings = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Rotate PDF'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: pageController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Page number',
+                      hintText: 'Leave empty for all pages',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<int>(
+                    value: selectedAngle,
+                    decoration: const InputDecoration(
+                      labelText: 'Rotation angle',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 90, child: Text('90°')),
+                      DropdownMenuItem(value: 180, child: Text('180°')),
+                      DropdownMenuItem(value: 270, child: Text('270°')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() {
+                          selectedAngle = value;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final pageText = pageController.text.trim();
+
+                    if (pageText.isNotEmpty &&
+                        (int.tryParse(pageText) == null ||
+                            int.parse(pageText) < 1)) {
+                      return;
+                    }
+
+                    Navigator.pop(dialogContext, {
+                      'page': pageText,
+                      'angle': selectedAngle,
+                    });
+                  },
+                  child: const Text('Rotate'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    pageController.dispose();
+
+    if (settings == null) return;
+    if (!mounted) return;
+
+    final pageText = settings['page'] as String;
+    final angle = settings['angle'] as int;
+
+    final rotation = switch (angle) {
+      90 => PdfRotation.r90,
+      180 => PdfRotation.r180,
+      270 => PdfRotation.r270,
+      _ => PdfRotation.r90,
+    };
+
+    final folder = await getPdfFolder();
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final fileName = 'Rotated_$stamp.pdf';
+    final outputPath = '${folder.path}/$fileName';
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Rotating PDF...')),
+    );
+
+    final pdf = Pdf();
+
+    try {
+      final output = await FileSink.open(File(outputPath));
+
+      try {
+        final input = PdfFile(inputFile);
+
+        if (pageText.isEmpty) {
+          await pdf.editOnce(input, output).rotatePages(
+            by: rotation,
+            pages: PdfPages.all(),
+          );
+        } else {
+          await pdf.editOnce(input, output).rotatePages(
+            by: rotation,
+            pages: PdfPages.single(int.parse(pageText) - 1),
+          );
+        }
+
+        await output.close();
+      } catch (_) {
+        await output.abort(Exception('PDF rotation failed'));
+        rethrow;
+      }
+    } finally {
+      await pdf.dispose();
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      documents.insert(0, {
+        'name': fileName,
+        'path': outputPath,
+      });
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('PDF rotated successfully!'),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('PDF rotation failed: $e')),
+    );
+  }
+}
+
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
