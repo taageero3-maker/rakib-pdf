@@ -1329,6 +1329,12 @@ Future<void> watermarkPdfFile() async {
   const Color(0xFF0EA5E9),
   rotatePdfFile,
 ),
+    toolCard(
+  Icons.branding_watermark,
+  'Watermark PDF',
+  const Color(0xFF8B5CF6),
+  watermarkPdfFile,
+),
   ],
 ),
 
