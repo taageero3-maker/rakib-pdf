@@ -953,6 +953,12 @@ Future<void> unlockPdfFile() async {
   const Color(0xFF2563EB),
   protectPdfFile,
     ),
+    toolCard(
+      Icons.lock_open,
+      'Unlock PDF',
+      const Color(0xFF16A085),
+      unlockPdfFile,
+    ),
   ],
 ),
 
