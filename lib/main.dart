@@ -942,7 +942,7 @@ Future<void> watermarkPdfFile() async {
 
     showMessage('Watermark ayaa lagu darayaa...');
 
-    final pdf = Pdf();
+    final pdf = pdfman.Pdf();
 
     try {
       final output = await FileSink.open(File(outputPath));
