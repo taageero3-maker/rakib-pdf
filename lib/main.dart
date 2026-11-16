@@ -1065,7 +1065,6 @@ Future<void> pageNumbersPdfFile() async {
                 style: pdfman.PdfWatermarkStyle(
                   fontSize: 11,
                   opacity: 1.0,
-                  rotation: 0,
                   color: pdfman.PdfColor(0, 0, 0),
                 ),
                 position: pdfman.PdfWatermarkPosition.corner(
