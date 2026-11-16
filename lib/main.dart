@@ -522,6 +522,116 @@ Future<void> splitPdfFile() async {
     );
   }
 }
+
+  
+Future<void> unlockPdfFile() async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selectedFile = result.files.single;
+    File? inputFile;
+
+    if (selectedFile.path != null) {
+      inputFile = File(selectedFile.path!);
+    } else if (selectedFile.bytes != null) {
+      final tempDir = await getTemporaryDirectory();
+      inputFile = File(
+        '${tempDir.path}/unlock_input_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await inputFile.writeAsBytes(selectedFile.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('Could not read PDF file');
+    }
+
+    if (!mounted) return;
+
+    final passwordController = TextEditingController();
+
+    final password = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Unlock PDF'),
+          content: TextField(
+            controller: passwordController,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Enter PDF password',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (passwordController.text.isNotEmpty) {
+                  Navigator.pop(
+                    dialogContext,
+                    passwordController.text,
+                  );
+                }
+              },
+              child: const Text('Unlock'),
+            ),
+          ],
+        );
+      },
+    );
+
+    passwordController.dispose();
+
+    if (password == null) return;
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Unlocking PDF...')),
+    );
+
+    final folder = await getPdfFolder();
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final fileName = 'Unlocked_$stamp.pdf';
+    final outputPath = '${folder.path}/$fileName';
+
+    await AresDefenceLabsLocksmithPdf.decryptPdf(
+      inputPath: inputFile.path,
+      outputPath: outputPath,
+      password: password,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      documents.insert(0, {
+        'name': fileName,
+        'path': outputPath,
+      });
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('PDF unlocked successfully!'),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('PDF unlocking failed: $e')),
+    );
+  }
+}
+  
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
