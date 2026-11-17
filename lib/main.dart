@@ -1649,8 +1649,8 @@ Future<void> pdfToImages() async {
 
         try {
           final image = await page.render(
-            width: (page.width * 2).toInt(),
-            height: (page.height * 2).toInt(),
+            width: page.width * 2,
+height: page.height * 2,
             format: format == 'jpg'
                 ? pdfx.PdfPageImageFormat.jpeg
                 : pdfx.PdfPageImageFormat.png,
