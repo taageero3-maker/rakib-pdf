@@ -1753,6 +1753,72 @@ Future<void> pdfToWord() async {
   }
 }
 
+  
+Future<void> wordToPdf() async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['docx'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selected = result.files.single;
+    File? inputFile;
+
+    if (selected.path != null) {
+      inputFile = File(selected.path!);
+    } else if (selected.bytes != null) {
+      final temp = await getTemporaryDirectory();
+      inputFile = File(
+        '${temp.path}/word_pdf_${DateTime.now().millisecondsSinceEpoch}.docx',
+      );
+      await inputFile.writeAsBytes(selected.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('Word file lama akhrin karin');
+    }
+
+    final baseDirectory = await getApplicationDocumentsDirectory();
+    final outputFolder = Directory(
+      '${baseDirectory.path}/RAKIB_PDF',
+    );
+
+    await outputFolder.create(recursive: true);
+
+    final outputFile = File(
+      '${outputFolder.path}/Word_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    );
+
+    if (!mounted) return;
+
+    showMessage('Word-ka PDF ayaa loo beddelayaa...');
+
+    final pdf = pdfman.Pdf();
+    final output = await FileSink.open(outputFile);
+
+    try {
+      await pdf.convertFromOffice(
+        PdfFile(inputFile),
+        output,
+        format: pdfman.PdfOfficeFormat.docx,
+      );
+    } finally {
+      await output.close();
+      await pdf.dispose();
+    }
+
+    if (!mounted) return;
+
+    showMessage('Word waxaa loo beddelay PDF! Ka eeg RAKIB_PDF.');
+  } catch (e) {
+    if (!mounted) return;
+    showMessage('Word to PDF error: $e');
+  }
+}
+
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
