@@ -1580,6 +1580,113 @@ Future<void> reorderPdfPages() async {
   }
 }
 
+  
+Future<void> pdfToImages() async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selected = result.files.single;
+    File? inputFile;
+
+    if (selected.path != null) {
+      inputFile = File(selected.path!);
+    } else if (selected.bytes != null) {
+      final temp = await getTemporaryDirectory();
+      inputFile = File(
+        '${temp.path}/pdf_images_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await inputFile.writeAsBytes(selected.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('PDF lama akhrin karin');
+    }
+
+    final format = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('PDF to Images'),
+        content: const Text('Dooro nooca sawirrada:'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 'jpg'),
+            child: const Text('JPG'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, 'png'),
+            child: const Text('PNG'),
+          ),
+        ],
+      ),
+    );
+
+    if (format == null) return;
+
+    if (!mounted) return;
+
+    showMessage('PDF-ga waa la beddelayaa sawirro...');
+
+    final document = await pdfx.PdfDocument.openFile(inputFile.path);
+
+    try {
+      final pageCount = document.pagesCount;
+
+      final baseDirectory = await getApplicationDocumentsDirectory();
+      final imageFolder = Directory(
+        '${baseDirectory.path}/RAKIB_Images/PDF_${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      await imageFolder.create(recursive: true);
+
+      for (int i = 1; i <= pageCount; i++) {
+        final page = await document.getPage(i);
+
+        try {
+          final image = await page.render(
+            width: (page.width * 2).toInt(),
+            height: (page.height * 2).toInt(),
+            format: format == 'jpg'
+                ? pdfx.PdfPageImageFormat.jpeg
+                : pdfx.PdfPageImageFormat.png,
+            backgroundColor: '#FFFFFF',
+          );
+
+          if (image == null) {
+            throw Exception('Bogga $i sawir looma beddeli karin');
+          }
+
+          final extension = format == 'jpg' ? 'jpg' : 'png';
+
+          final imageFile = File(
+            '${imageFolder.path}/Page_${i.toString().padLeft(3, '0')}.$extension',
+          );
+
+          await imageFile.writeAsBytes(image.bytes);
+        } finally {
+          await page.close();
+        }
+      }
+
+      if (!mounted) return;
+
+      showMessage(
+        '$pageCount sawir ayaa lagu kaydiyey RAKIB_Images!',
+      );
+    } finally {
+      await document.close();
+    }
+  } catch (e) {
+    if (!mounted) return;
+    showMessage('PDF to Images error: $e');
+  }
+}
+
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
