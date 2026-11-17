@@ -1687,6 +1687,72 @@ height: page.height * 2,
   }
 }
 
+  
+Future<void> pdfToWord() async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selected = result.files.single;
+    File? inputFile;
+
+    if (selected.path != null) {
+      inputFile = File(selected.path!);
+    } else if (selected.bytes != null) {
+      final temp = await getTemporaryDirectory();
+      inputFile = File(
+        '${temp.path}/pdf_word_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await inputFile.writeAsBytes(selected.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('PDF lama akhrin karin');
+    }
+
+    final baseDirectory = await getApplicationDocumentsDirectory();
+    final outputFolder = Directory(
+      '${baseDirectory.path}/RAKIB_Word',
+    );
+
+    await outputFolder.create(recursive: true);
+
+    final outputFile = File(
+      '${outputFolder.path}/PDF_${DateTime.now().millisecondsSinceEpoch}.docx',
+    );
+
+    if (!mounted) return;
+
+    showMessage('PDF-ga Word ayaa loo beddelayaa...');
+
+    final pdf = pdfman.Pdf();
+    final output = await FileSink.open(outputFile);
+
+    try {
+      await pdf.convertToOffice(
+        PdfFile(inputFile),
+        output,
+        format: pdfman.PdfOfficeFormat.docx,
+      );
+    } finally {
+      await output.close();
+      await pdf.dispose();
+    }
+
+    if (!mounted) return;
+
+    showMessage('Word file waa la sameeyay! Waxaa laga helayaa RAKIB_Word.');
+  } catch (e) {
+    if (!mounted) return;
+    showMessage('PDF to Word error: $e');
+  }
+}
+
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
