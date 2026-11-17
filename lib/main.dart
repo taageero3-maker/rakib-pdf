@@ -1936,6 +1936,12 @@ Future<void> reorderPdfPages() async {
   const Color(0xFF00897B),
   extractPdfPages,
 ),
+    toolCard(
+  Icons.swap_vert,
+  'Reorder PDF Pages',
+  const Color(0xFF5E35B1),
+  reorderPdfPages,
+),
   ],
 ),
 
