@@ -2050,6 +2050,12 @@ Future<void> pdfToImages() async {
   const Color(0xFF5E35B1),
   reorderPdfPages,
 ),
+    toolCard(
+  Icons.image,
+  'PDF to Images',
+  const Color(0xFF00897B),
+  pdfToImages,
+),
   ],
 ),
 
