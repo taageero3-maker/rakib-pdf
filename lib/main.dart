@@ -2122,6 +2122,12 @@ Future<void> pdfToWord() async {
   const Color(0xFF00897B),
   pdfToImages,
 ),
+    toolCard(
+  Icons.description,
+  'PDF to Word',
+  const Color(0xFF1565C0),
+  pdfToWord,
+),
   ],
 ),
 
