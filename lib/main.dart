@@ -21,6 +21,7 @@ import 'package:ares_defence_labs_lock_smith_pdf/ares_defence_labs_lock_smith_pd
 import 'package:pdf_manipulator/pdf_manipulator.dart' as pdfman;
 import 'package:pdf_manipulator/pdf_manipulator.dart';
 import 'package:pdf_manipulator/io.dart';
+import 'package:pdfx/pdfx.dart' as pdfx;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
