@@ -1735,7 +1735,7 @@ Future<void> pdfToWord() async {
 
     try {
       await pdf.convertToOffice(
-        PdfInput(PdfFile(inputFile)),
+        PdfInput(FileSource(inputFile)),
         output,
         format: pdfman.PdfOfficeFormat.docx,
       );
