@@ -1416,6 +1416,169 @@ Future<void> extractPdfPages() async {
   }
 }
 
+  
+Future<void> reorderPdfPages() async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selected = result.files.single;
+    File? inputFile;
+
+    if (selected.path != null) {
+      inputFile = File(selected.path!);
+    } else if (selected.bytes != null) {
+      final temp = await getTemporaryDirectory();
+      inputFile = File(
+        '${temp.path}/reorder_input_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await inputFile.writeAsBytes(selected.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('PDF lama akhrin karin');
+    }
+
+    final pdf = pdfman.Pdf();
+
+    try {
+      final pageCount = await pdf.read(
+        PdfFile(inputFile),
+        (document) async => document.pageCount,
+      );
+
+      if (pageCount < 2) {
+        showMessage('PDF-kan bogag ku filan ma laha');
+        return;
+      }
+
+      final controller = TextEditingController();
+
+      final pagesText = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Reorder PDF Pages'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('PDF-kan wuxuu leeyahay $pageCount bog.'),
+              const SizedBox(height: 12),
+              const Text(
+                'Geli kala horreynta cusub ee bogagga:',
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  hintText: 'Tusaale: 5, 2, 1, 4, 3',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Waa inaad gelisaa dhammaan bogagga, mid kasta hal mar.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                controller.text,
+              ),
+              child: const Text('Reorder Pages'),
+            ),
+          ],
+        ),
+      );
+
+      controller.dispose();
+
+      if (pagesText == null) return;
+
+      final parts = pagesText.split(',');
+      final pageNumbers = <int>[];
+
+      for (final part in parts) {
+        final number = int.tryParse(part.trim());
+
+        if (number == null ||
+            number < 1 ||
+            number > pageCount ||
+            pageNumbers.contains(number)) {
+          showMessage('Bogagga si sax ah u kala hormari.');
+          return;
+        }
+
+        pageNumbers.add(number);
+      }
+
+      if (pageNumbers.length != pageCount) {
+        showMessage('Waa inaad gelisaa dhammaan $pageCount bog.');
+        return;
+      }
+
+      final pageOrder = PdfPageOrder(
+        pageNumbers.map((number) => number - 1).toList(),
+      );
+
+      final folder = await getPdfFolder();
+      final fileName =
+          'Reordered_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final outputPath = '${folder.path}/$fileName';
+
+      if (!mounted) return;
+
+      showMessage('Bogagga waa la kala habaynayaa...');
+
+      final output = await FileSink.open(File(outputPath));
+
+      try {
+        await pdf.rewrite(
+          PdfFile(inputFile),
+          output,
+          (editor) async {
+            await editor.reorderPages(pageOrder);
+          },
+        );
+
+        await output.close();
+      } catch (_) {
+        await output.abort(Exception('Page reordering failed'));
+        rethrow;
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        documents.insert(0, {
+          'name': fileName,
+          'path': outputPath,
+        });
+      });
+
+      showMessage('Bogagga si guul leh ayaa loo kala habeeyey!');
+    } finally {
+      await pdf.dispose();
+    }
+  } catch (e) {
+    if (!mounted) return;
+    showMessage('Reorder Pages error: $e');
+  }
+}
+
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
