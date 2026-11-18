@@ -76,17 +76,17 @@ void initState() {
   loadDocuments();
 }
 
+
 Future<void> loadDocuments() async {
   try {
     final folder = await getPdfFolder();
 
     final files = await folder
         .list()
-        .where(
-          (file) =>
-              file is File &&
-              file.path.toLowerCase().endsWith('.pdf'),
-        )
+        .where((file) =>
+            file is File &&
+            (file.path.toLowerCase().endsWith('.pdf') ||
+             file.path.toLowerCase().endsWith('.docx')))
         .cast<File>()
         .toList();
 
@@ -114,6 +114,7 @@ Future<void> loadDocuments() async {
     debugPrint('Loading documents error: $e');
   }
 }
+
   
 Future<void> mergePdfFiles() async {
   try {
