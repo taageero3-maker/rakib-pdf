@@ -2566,13 +2566,17 @@ Future<void> saveDocument() async {
               color: Colors.grey,
             ),
             onSelected: (value) {
-              if (value == 'rename') {
-                renameDocument();
-              } else if (value == 'share') {
-                shareDocument();
-              } else if (value == 'delete') {
-                deleteDocument();
-              }
+              
+if (value == 'rename') {
+  renameDocument();
+} else if (value == 'share') {
+  shareDocument();
+} else if (value == 'save') {
+  saveDocument();
+} else if (value == 'delete') {
+  deleteDocument();
+}
+
             },
             itemBuilder: (context) => [
               const PopupMenuItem(
