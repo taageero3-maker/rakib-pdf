@@ -1810,7 +1810,9 @@ Future<void> wordToPdf() async {
 
     if (!mounted) return;
 
-    showMessage('Word waxaa loo beddelay PDF! Ka eeg RAKIB_PDF.');
+    await loadDocuments();
+
+showMessage('PDF waa la sameeyay! Ka eeg Documents.');
   } catch (e) {
     if (!mounted) return;
     showMessage('Word to PDF error: $e');
