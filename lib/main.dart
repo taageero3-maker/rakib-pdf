@@ -2368,9 +2368,7 @@ final controller = TextEditingController(
       '_',
     );
 
-    final finalName = cleanName.toLowerCase().endsWith('.pdf')
-        ? cleanName
-        : '$cleanName.pdf';
+    final finalName = '$cleanName.$extension';
 
     final oldFile = File(filePath);
     final newPath = '${oldFile.parent.path}/$finalName';
