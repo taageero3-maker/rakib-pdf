@@ -1742,7 +1742,9 @@ Future<void> pdfToWord() async {
 
     if (!mounted) return;
 
-    showMessage('Word file waa la sameeyay! Waxaa laga helayaa RAKIB_Word.');
+    await loadDocuments();
+
+showMessage('Word file waa la sameeyay! Ka eeg Documents.');
   } catch (e) {
     if (!mounted) return;
     showMessage('PDF to Word error: $e');
