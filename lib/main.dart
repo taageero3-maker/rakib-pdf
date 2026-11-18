@@ -2567,7 +2567,7 @@ Future<void> saveDocument() async {
             ),
             onSelected: (value) {
               
-if (value == 'rename') {
+          if (value == 'rename') {
   renameDocument();
 } else if (value == 'share') {
   shareDocument();
@@ -2599,6 +2599,18 @@ if (value == 'rename') {
                   ],
                 ),
               ),
+              
+              const PopupMenuItem(
+  value: 'save',
+  child: Row(
+    children: [
+      Icon(Icons.download_outlined, size: 20),
+      SizedBox(width: 10),
+      Text('Save to File Manager'),
+    ],
+  ),
+),
+
               const PopupMenuItem(
                 value: 'delete',
                 child: Row(
