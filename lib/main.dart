@@ -2321,9 +2321,14 @@ Widget documentTile(Map<String, dynamic> document) {
   final String fileName = document['name'] as String;
 
   Future<void> renameDocument() async {
-    final controller = TextEditingController(
-      text: fileName.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
-    );
+    final extension = fileName.split('.').last.toLowerCase();
+
+final controller = TextEditingController(
+  text: fileName.replaceFirst(
+    RegExp(r'\.(pdf|docx)$', caseSensitive: false),
+    '',
+  ),
+);
 
     final newName = await showDialog<String>(
       context: context,
