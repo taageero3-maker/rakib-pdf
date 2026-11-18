@@ -2477,6 +2477,38 @@ final controller = TextEditingController(
       );
     }
   }
+  
+Future<void> saveDocument() async {
+  try {
+    final file = File(filePath);
+
+    if (!await file.exists()) {
+      throw Exception('File not found');
+    }
+
+    final savedPath = await FilePicker.platform.saveFile(
+      fileName: fileName,
+      bytes: await file.readAsBytes(),
+    );
+
+    if (!mounted) return;
+
+    if (savedPath == null) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Document saved successfully!'),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Save failed: $e')),
+    );
+  }
+}
+
 
   return InkWell(
     borderRadius: BorderRadius.circular(15),
