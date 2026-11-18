@@ -2507,10 +2507,14 @@ final controller = TextEditingController(
               color: const Color(0xFFFFEEEE),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
-              Icons.picture_as_pdf,
-              color: Colors.red,
-            ),
+            child: Icon(
+  fileName.toLowerCase().endsWith('.docx')
+      ? Icons.description
+      : Icons.picture_as_pdf,
+  color: fileName.toLowerCase().endsWith('.docx')
+      ? Colors.blue
+      : Colors.red,
+),
           ),
           const SizedBox(width: 12),
           Expanded(
