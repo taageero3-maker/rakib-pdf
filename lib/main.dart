@@ -1716,12 +1716,7 @@ Future<void> pdfToWord() async {
       throw Exception('PDF lama akhrin karin');
     }
 
-    final baseDirectory = await getApplicationDocumentsDirectory();
-    final outputFolder = Directory(
-      '${baseDirectory.path}/RAKIB_Word',
-    );
-
-    await outputFolder.create(recursive: true);
+    final outputFolder = await getPdfFolder();
 
     final outputFile = File(
       '${outputFolder.path}/PDF_${DateTime.now().millisecondsSinceEpoch}.docx',
