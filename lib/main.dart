@@ -25,20 +25,20 @@ import 'package:pdfx/pdfx.dart' as pdfx;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const RakibPdfApp());
+  runApp(const EqorApp());
 }
 
 const Color primaryBlue = Color(0xFF2878E8);
 const Color darkText = Color(0xFF17243A);
 const Color lightBackground = Color(0xFFF5F7FB);
 
-class RakibPdfApp extends StatelessWidget {
-  const RakibPdfApp({super.key});
+class EqorApp extends StatelessWidget {
+  const  EqorApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RAKIB PDF',
+      title: 'EQOR – PDF & Document Tools',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
