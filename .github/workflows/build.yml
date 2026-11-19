@@ -36,16 +36,16 @@ jobs:
           import re
 
           manifest = Path("android/app/src/main/AndroidManifest.xml")
-          text = manifest.read_text()
+          text = manifest.read_text(encoding="utf-8")
 
           text = re.sub(
               r'android:label="[^"]*"',
-              'android:label="EQOR – PDF & Document Tools"',
+              'android:label="EQOR – PDF &amp; Document Tools"',
               text,
               count=1
           )
 
-          manifest.write_text(text)
+          manifest.write_text(text, encoding="utf-8")
           print("App name changed successfully")
           PY
           
