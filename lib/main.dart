@@ -2512,17 +2512,23 @@ Future<void> saveDocument() async {
 
   return InkWell(
     borderRadius: BorderRadius.circular(15),
-    onTap: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PdfViewerScreen(
-            filePath: filePath,
-            title: fileName,
-          ),
+    
+onTap: () {
+  if (fileName.toLowerCase().endsWith('.docx')) {
+    shareDocument();
+  } else {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PdfViewerScreen(
+          filePath: filePath,
+          title: fileName,
         ),
-      );
-    },
+      ),
+    );
+  }
+},
+
     child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(13),
