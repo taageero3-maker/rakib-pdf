@@ -28,7 +28,27 @@ jobs:
 
       - name: Generate Android project
         run: flutter create --platforms=android --org com.rakib .
-        
+
+      - name: Set App Display Name
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text()
+
+          text = re.sub(
+              r'android:label="[^"]*"',
+              'android:label="EQOR – PDF & Document Tools"',
+              text,
+              count=1
+          )
+
+          manifest.write_text(text)
+          print("App name changed successfully")
+          PY
+          
       - name: Configure JP2 dependency
         run: |
           python3 - <<'PY'
