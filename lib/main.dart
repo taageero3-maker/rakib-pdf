@@ -1999,7 +1999,7 @@ showMessage('PDF waa la sameeyay! Ka eeg Documents.');
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'RAKIB PDF',
+                      'EQOR PDF',
                       style: TextStyle(
                         fontSize: 21,
                         fontWeight: FontWeight.bold,
