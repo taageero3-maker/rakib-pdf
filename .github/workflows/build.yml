@@ -36,6 +36,7 @@ jobs:
           echo "===== build.gradle ====="
           cat android/app/build.gradle || true
 
+      
       - name: Fix Android R8 Build
         run: |
           python3 - <<'PY'
@@ -43,38 +44,37 @@ jobs:
           import re
 
           gradle = Path("android/app/build.gradle.kts")
-
           if not gradle.exists():
               gradle = Path("android/app/build.gradle")
 
+          if not gradle.exists():
+              raise SystemExit("ERROR: Android Gradle file not found")
+
           text = gradle.read_text(encoding="utf-8")
 
-          if gradle.name.endswith(".kts"):
-              text = re.sub(
-                  r"isMinifyEnabled\s*=\s*true",
-                  "isMinifyEnabled = false",
-                  text
-              )
-              text = re.sub(
-                  r"isShrinkResources\s*=\s*true",
-                  "isShrinkResources = false",
-                  text
-              )
-          else:
-              text = re.sub(
-                  r"minifyEnabled\s+true",
-                  "minifyEnabled false",
-                  text
-              )
-              text = re.sub(
-                  r"shrinkResources\s+true",
-                  "shrinkResources false",
-                  text
-              )
+          patterns = [
+              (r"isMinifyEnabled\s*=\s*true", "isMinifyEnabled = false"),
+              (r"isShrinkResources\s*=\s*true", "isShrinkResources = false"),
+              (r"minifyEnabled\s+true", "minifyEnabled false"),
+              (r"shrinkResources\s+true", "shrinkResources false"),
+          ]
+
+          for pattern, replacement in patterns:
+              text = re.sub(pattern, replacement, text)
 
           gradle.write_text(text, encoding="utf-8")
-          print("Android release minification disabled")
+
+          print("----- Android release configuration -----")
+          for number, line in enumerate(text.splitlines(), 1):
+              if "buildTypes" in line or "release" in line or "Minify" in line or "minify" in line or "shrinkResources" in line:
+                  print(f"{number}: {line}")
+
+          if re.search(r"(?:isMinifyEnabled\s*=\s*true|minifyEnabled\s+true)", text):
+              raise SystemExit("ERROR: Minification is STILL enabled")
+
+          print("Gradle file checked. No explicit minify=true setting remains.")
           PY
+
 
       - name: Set App Display Name
         run: |
