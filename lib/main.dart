@@ -2368,6 +2368,12 @@ Future<void> signPdf() async {
   const Color(0xFFD32F2F),
   wordToPdf,
 ),
+    toolCard(
+  Icons.draw,
+  'Sign PDF',
+  const Color(0xFF2563EB),
+  signPdf,
+),
   ],
 ),
 
