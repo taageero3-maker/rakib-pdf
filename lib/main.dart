@@ -1988,6 +1988,124 @@ Future<void> signPdf() async {
   }
 }
 
+  
+Future<void> extractTextFromPdf() async {
+  pdfx.PdfDocument? document;
+  final recognizer = TextRecognizer(
+    script: TextRecognitionScript.latin,
+  );
+
+  try {
+    // 1. Dooro PDF
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selected = result.files.single;
+    File? inputFile;
+
+    if (selected.path != null) {
+      inputFile = File(selected.path!);
+    } else if (selected.bytes != null) {
+      final temp = await getTemporaryDirectory();
+      inputFile = File(
+        '${temp.path}/ocr_input_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await inputFile.writeAsBytes(selected.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('PDF lama akhrin karin');
+    }
+
+    if (!mounted) return;
+
+    showMessage('Reading PDF pages...');
+
+    // 2. Fur PDF
+    document = await pdfx.PdfDocument.openFile(inputFile.path);
+
+    final StringBuffer extractedText = StringBuffer();
+    final temp = await getTemporaryDirectory();
+
+    // 3. Bog kasta sawir u beddel, qoraalkana aqoonso
+    for (int pageNumber = 1;
+        pageNumber <= document.pagesCount;
+        pageNumber++) {
+      if (!mounted) return;
+
+      final page = await document.getPage(pageNumber);
+
+      try {
+        final pageImage = await page.render(
+          width: page.width * 2,
+          height: page.height * 2,
+          format: pdfx.PdfPageImageFormat.png,
+        );
+
+        if (pageImage == null) continue;
+
+        final imageFile = File(
+          '${temp.path}/ocr_page_$pageNumber.png',
+        );
+
+        await imageFile.writeAsBytes(pageImage.bytes);
+
+        final inputImage = InputImage.fromFilePath(imageFile.path);
+        final recognized = await recognizer.processImage(inputImage);
+
+        extractedText.writeln('--- Page $pageNumber ---');
+        extractedText.writeln(recognized.text);
+        extractedText.writeln();
+
+        await imageFile.delete();
+      } finally {
+        await page.close();
+      }
+    }
+
+    final text = extractedText.toString().trim();
+
+    if (!mounted) return;
+
+    if (text.isEmpty) {
+      showMessage('No text was found in this PDF.');
+      return;
+    }
+
+    // 4. Muuji qoraalka la soo saaray
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Extracted Text'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: SingleChildScrollView(
+            child: SelectableText(text),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+    showMessage('OCR error: $e');
+  } finally {
+    await document?.close();
+    await recognizer.close();
+  }
+}
+
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
