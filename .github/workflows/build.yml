@@ -29,6 +29,13 @@ jobs:
       - name: Generate Android project
         run: flutter create --platforms=android --org com.rakib .
 
+      - name: Show Android Gradle Config
+        run: |
+          echo "===== build.gradle.kts ====="
+          cat android/app/build.gradle.kts || true
+          echo "===== build.gradle ====="
+          cat android/app/build.gradle || true
+
       - name: Fix Android R8 Build
         run: |
           python3 - <<'PY'
