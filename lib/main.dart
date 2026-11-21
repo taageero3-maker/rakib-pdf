@@ -2493,6 +2493,12 @@ Future<void> extractTextFromPdf() async {
   const Color(0xFF2563EB),
   signPdf,
 ),
+    toolCard(
+  Icons.text_snippet,
+  'OCR PDF',
+  const Color(0xFF0D9488),
+  extractTextFromPdf,
+),
   ],
 ),
 
