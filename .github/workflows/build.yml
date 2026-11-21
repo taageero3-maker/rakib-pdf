@@ -40,7 +40,7 @@ jobs:
 
           text = re.sub(
               r'android:label="[^"]*"',
-              'android:label="olofpdf"',
+              'android:label="olof-pdf"',
               text,
               count=1
           )
