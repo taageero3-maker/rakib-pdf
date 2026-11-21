@@ -1820,6 +1820,173 @@ showMessage('PDF waa la sameeyay! Ka eeg Documents.');
   }
 }
 
+  
+Future<void> signPdf() async {
+  SignatureController? signatureController;
+
+  try {
+    // 1. Dooro PDF
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final selected = result.files.single;
+    File? inputFile;
+
+    if (selected.path != null) {
+      inputFile = File(selected.path!);
+    } else if (selected.bytes != null) {
+      final temp = await getTemporaryDirectory();
+      inputFile = File(
+        '${temp.path}/sign_input_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await inputFile.writeAsBytes(selected.bytes!);
+    }
+
+    if (inputFile == null) {
+      throw Exception('PDF lama akhrin karin');
+    }
+
+    if (!mounted) return;
+
+    // 2. Diyaari saxiixa
+    signatureController = SignatureController(
+      penStrokeWidth: 3,
+      penColor: Colors.black,
+      exportBackgroundColor: Colors.white,
+    );
+
+    final pageController = TextEditingController(text: '1');
+
+    final settings = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sign PDF'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Draw your signature below:'),
+            const SizedBox(height: 12),
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Signature(
+                controller: signatureController!,
+                backgroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pageController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Page number',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => signatureController!.clear(),
+            child: const Text('Clear'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final page = int.tryParse(pageController.text.trim());
+
+              if (page == null || page < 1) return;
+
+              Navigator.pop(dialogContext, page.toString());
+            },
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+
+    pageController.dispose();
+
+    if (settings == null || !mounted) return;
+
+    // 3. PNG ka dhig saxiixa
+    final signatureBytes = await signatureController.toPngBytes();
+
+    if (signatureBytes == null || signatureBytes.isEmpty) {
+      throw Exception('Please draw your signature first');
+    }
+
+    // 4. PDF cusub samee
+    final folder = await getPdfFolder();
+    final fileName =
+        'Signed_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final outputPath = '${folder.path}/$fileName';
+
+    showMessage('Signing PDF...');
+
+    final pdf = pdfman.Pdf();
+
+    try {
+      final output = await FileSink.open(File(outputPath));
+
+      try {
+        await pdf.rewrite(
+          PdfFile(inputFile),
+          output,
+          (editor) async {
+            await editor.addImageStamp(
+              MemorySource(signatureBytes),
+              bounds: pdfman.PdfRect(
+                x: 350,
+                y: 100,
+                width: 180,
+                height: 70,
+              ),
+              pages: pdfman.PdfPages.single(
+                int.parse(settings) - 1,
+              ),
+            );
+          },
+        );
+
+        await output.close();
+      } catch (_) {
+        await output.abort(Exception('Signing failed'));
+        rethrow;
+      }
+    } finally {
+      await pdf.dispose();
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      documents.insert(0, {
+        'name': fileName,
+        'path': outputPath,
+      });
+    });
+
+    showMessage('PDF signed successfully!');
+  } catch (e) {
+    if (!mounted) return;
+    showMessage('Sign PDF error: $e');
+  } finally {
+    signatureController?.dispose();
+  }
+}
+
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
