@@ -24,6 +24,7 @@ import 'package:pdf_manipulator/io.dart';
 import 'package:pdfx/pdfx.dart' as pdfx;
 import 'package:signature/signature.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
