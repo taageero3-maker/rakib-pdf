@@ -57,11 +57,22 @@ jobs:
 
           rules = root / "proguard-rules.pro"
           rules.write_text("""
+          # Keep ML Kit classes used through reflection
+          -keep class com.google.mlkit.** { *; }
+          -keep class com.google.android.gms.internal.mlkit_vision_text.** { *; }
+          -keep class com.google.android.gms.internal.mlkit_vision_common.** { *; }
+          -keep class com.google.android.gms.internal.mlkit_common.** { *; }
+
+          # Keep Firebase component constructors
+          -keep class * implements com.google.firebase.components.ComponentRegistrar { void <init>(); }
+
+          # Optional OCR language modules
           -dontwarn com.google.mlkit.vision.text.chinese.**
           -dontwarn com.google.mlkit.vision.text.devanagari.**
           -dontwarn com.google.mlkit.vision.text.japanese.**
           -dontwarn com.google.mlkit.vision.text.korean.**
           """.strip() + "\n", encoding="utf-8")
+
 
           if "proguard-rules.pro" not in text:
               match = re.search(r'buildTypes\s*\{', text)
