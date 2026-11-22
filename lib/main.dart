@@ -2090,11 +2090,28 @@ Future<void> extractTextFromPdf() async {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Close'),
-          ),
-        ],
+  TextButton.icon(
+    onPressed: () async {
+      await Clipboard.setData(
+        ClipboardData(text: text),
+      );
+
+      if (!dialogContext.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Text copied successfully!'),
+        ),
+      );
+    },
+    icon: const Icon(Icons.copy),
+    label: const Text('Copy'),
+  ),
+  TextButton(
+    onPressed: () => Navigator.pop(dialogContext),
+    child: const Text('Close'),
+  ),
+],
       ),
     );
   } catch (e) {
