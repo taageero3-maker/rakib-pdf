@@ -1913,7 +1913,11 @@ Future<void> signPdf() async {
                           onPressed: () {
                             updateDialog(() {
                               currentPenWidth = 1.5;
-                              signatureController!.penStrokeWidth = 1.5;
+                              signatureController = SignatureController(
+  penStrokeWidth: 1.5,
+  penColor: Colors.black,
+  exportBackgroundColor: Colors.transparent,
+);
                             });
                           },
                           child: const Text('Thin'),
