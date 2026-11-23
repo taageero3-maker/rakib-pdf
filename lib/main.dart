@@ -1897,9 +1897,10 @@ Future<void> signPdf() async {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Signature(
-                        controller: signatureController!,
-                        backgroundColor: Colors.transparent,
-                      ),
+  key: ValueKey(signatureController),
+  controller: signatureController!,
+  backgroundColor: Colors.transparent,
+),
                     ),
 
                     const SizedBox(height: 12),
