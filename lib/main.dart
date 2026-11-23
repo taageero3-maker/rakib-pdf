@@ -2010,7 +2010,7 @@ Future<void> signPdf() async {
     if (settings == null || !mounted) return;
 
     // 4. Saxiixa PNG transparent ka dhig
-    final signatureBytes = await signatureController.toPngBytes();
+    final signatureBytes = await signatureController!.toPngBytes();
 
     if (signatureBytes == null || signatureBytes.isEmpty) {
       throw Exception('Please draw your signature first');
