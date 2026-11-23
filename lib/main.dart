@@ -1823,8 +1823,10 @@ showMessage('PDF waa la sameeyay! Ka eeg Documents.');
 }
 
   
+
 Future<void> signPdf() async {
   SignatureController? signatureController;
+  final pageController = TextEditingController(text: '1');
 
   try {
     // 1. Dooro PDF
@@ -1855,84 +1857,233 @@ Future<void> signPdf() async {
 
     if (!mounted) return;
 
-    // 2. Diyaari saxiixa
+    // 2. Shaashadda u rog landscape
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+
     signatureController = SignatureController(
       penStrokeWidth: 3,
       penColor: Colors.black,
-      exportBackgroundColor: Colors.white,
+      exportBackgroundColor: Colors.transparent,
     );
 
-    final pageController = TextEditingController(text: '1');
+    double currentPenWidth = 3;
 
-    final settings = await showDialog<String>(
+    // 3. Qor saxiixa
+    final settings = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Sign PDF'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Draw your signature below:'),
-            const SizedBox(height: 12),
-            Container(
-              height: 180,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Signature(
-                controller: signatureController!,
-                backgroundColor: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: pageController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Page number',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => signatureController!.clear(),
-            child: const Text('Clear'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final page = int.tryParse(pageController.text.trim());
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, updateDialog) {
+            return AlertDialog(
+              title: const Text('Draw Your Signature'),
+              content: SizedBox(
+                width: 550,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Sign using your finger'),
 
-              if (page == null || page < 1) return;
+                    const SizedBox(height: 12),
 
-              Navigator.pop(dialogContext, page.toString());
-            },
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
+                    Container(
+                      height: 170,
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Signature(
+                        controller: signatureController!,
+                        backgroundColor: Colors.transparent,
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Row(
+                      children: [
+                        const Text('Pen style:'),
+                        const SizedBox(width: 12),
+
+                        OutlinedButton(
+                          onPressed: () {
+                            updateDialog(() {
+                              currentPenWidth = 1.5;
+                              signatureController!.penStrokeWidth = 1.5;
+                            });
+                          },
+                          child: const Text('Thin'),
+                        ),
+
+                        const SizedBox(width: 8),
+
+                        OutlinedButton(
+                          onPressed: () {
+                            updateDialog(() {
+                              currentPenWidth = 5;
+                              signatureController!.penStrokeWidth = 5;
+                            });
+                          },
+                          child: const Text('Bold'),
+                        ),
+                      ],
+                    ),
+
+                    Row(
+                      children: [
+                        const Text('Thickness'),
+                        Expanded(
+                          child: Slider(
+                            min: 1,
+                            max: 8,
+                            value: currentPenWidth,
+                            onChanged: (value) {
+                              updateDialog(() {
+                                currentPenWidth = value;
+                                signatureController!.penStrokeWidth = value;
+                              });
+                            },
+                          ),
+                        ),
+                        Text(currentPenWidth.toStringAsFixed(1)),
+                      ],
+                    ),
+
+                    TextField(
+                      controller: pageController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'PDF page number',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => signatureController!.clear(),
+                  child: const Text('Clear'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final page = int.tryParse(
+                      pageController.text.trim(),
+                    );
+
+                    if (page == null || page < 1) return;
+
+                    Navigator.pop(dialogContext, {
+                      'page': page,
+                    });
+                  },
+                  child: const Text('Continue'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
-
-    pageController.dispose();
 
     if (settings == null || !mounted) return;
 
-    // 3. PNG ka dhig saxiixa
+    // 4. Saxiixa PNG transparent ka dhig
     final signatureBytes = await signatureController.toPngBytes();
 
     if (signatureBytes == null || signatureBytes.isEmpty) {
       throw Exception('Please draw your signature first');
     }
 
-    // 4. PDF cusub samee
+    // 5. Dooro cabbirka iyo booska saxiixa
+    double posX = 350;
+    double posY = 100;
+    double signWidth = 180;
+    double signHeight = 70;
+
+    final placement = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, updatePlacement) {
+            return AlertDialog(
+              title: const Text('Adjust Signature Position'),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Horizontal position'),
+                    Slider(
+                      min: 0,
+                      max: 450,
+                      value: posX,
+                      onChanged: (value) {
+                        updatePlacement(() => posX = value);
+                      },
+                    ),
+
+                    const Text('Vertical position'),
+                    Slider(
+                      min: 0,
+                      max: 650,
+                      value: posY,
+                      onChanged: (value) {
+                        updatePlacement(() => posY = value);
+                      },
+                    ),
+
+                    const Text('Signature size'),
+                    Slider(
+                      min: 80,
+                      max: 300,
+                      value: signWidth,
+                      onChanged: (value) {
+                        updatePlacement(() {
+                          signWidth = value;
+                          signHeight = value * 70 / 180;
+                        });
+                      },
+                    ),
+
+                    Text(
+                      'Width: ${signWidth.toInt()} | Height: ${signHeight.toInt()}',
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Apply'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (placement != true || !mounted) return;
+
+    // 6. PDF cusub samee
     final folder = await getPdfFolder();
+
     final fileName =
         'Signed_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
     final outputPath = '${folder.path}/$fileName';
 
     showMessage('Signing PDF...');
@@ -1950,13 +2101,13 @@ Future<void> signPdf() async {
             await editor.addImageStamp(
               MemorySource(signatureBytes),
               bounds: pdfman.PdfRect(
-                x: 350,
-                y: 100,
-                width: 180,
-                height: 70,
+                x: posX,
+                y: posY,
+                width: signWidth,
+                height: signHeight,
               ),
               pages: pdfman.PdfPages.single(
-                int.parse(settings) - 1,
+                (settings['page'] as int) - 1,
               ),
             );
           },
@@ -1981,14 +2132,21 @@ Future<void> signPdf() async {
     });
 
     showMessage('PDF signed successfully!');
+
   } catch (e) {
     if (!mounted) return;
     showMessage('Sign PDF error: $e');
+
   } finally {
+    pageController.dispose();
     signatureController?.dispose();
+
+    // Ku celi shaashadda portrait
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
   }
 }
-
   
 Future<void> extractTextFromPdf() async {
   pdfx.PdfDocument? document;
