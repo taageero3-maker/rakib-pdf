@@ -1952,7 +1952,11 @@ Future<void> signPdf() async {
                             onChanged: (value) {
                               updateDialog(() {
                                 currentPenWidth = value;
-                                signatureController!.penStrokeWidth = value;
+                                signatureController = SignatureController(
+  penStrokeWidth: value,
+  penColor: Colors.black,
+  exportBackgroundColor: Colors.transparent,
+);
                               });
                             },
                           ),
